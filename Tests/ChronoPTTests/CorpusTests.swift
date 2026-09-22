@@ -37,9 +37,9 @@ struct CorpusTests {
     ])
     func dayAndTime(_ example: (text: String, day: [Int], time: [Int])) throws {
         let found = try #require(interpret(example.text))
-        #expect(ymd(found.date) == example.day)
-        #expect(hm(found.date) == example.time)
-        #expect(found.hasTime)
+        #expect(ymd(found.start.date) == example.day)
+        #expect(hm(found.start.date) == example.time)
+        #expect(found.start.hasTime)
     }
 
     @Test("Notes with only a day", arguments: [
@@ -60,8 +60,8 @@ struct CorpusTests {
     ])
     func onlyDay(_ example: (text: String, day: [Int])) throws {
         let found = try #require(interpret(example.text))
-        #expect(ymd(found.date) == example.day)
-        #expect(found.hasTime == false)
+        #expect(ymd(found.start.date) == example.day)
+        #expect(found.start.hasTime == false)
     }
 
     @Test("Notes with a period or a range of days", arguments: [
@@ -75,8 +75,8 @@ struct CorpusTests {
     ])
     func period(_ example: (text: String, start: [Int], end: [Int])) throws {
         let found = try #require(interpret(example.text))
-        #expect(ymd(found.date) == example.start)
-        #expect(ymd(found.end) == example.end)
+        #expect(ymd(found.start.date) == example.start)
+        #expect(ymd(found.end?.date) == example.end)
     }
 
     @Test("Agenda-style time ranges", arguments: [
@@ -88,9 +88,9 @@ struct CorpusTests {
     ])
     func agendaRange(_ example: (text: String, start: [Int], end: [Int])) throws {
         let found = try #require(interpret(example.text))
-        #expect(ymd(found.date) == [2026, 9, 22])
-        #expect(hm(found.date) == example.start)
-        #expect(hm(try #require(found.end)) == example.end)
+        #expect(ymd(found.start.date) == [2026, 9, 22])
+        #expect(hm(found.start.date) == example.start)
+        #expect(hm(try #require(found.end?.date)) == example.end)
     }
 
     @Test("A list of times is not a range")
@@ -102,9 +102,9 @@ struct CorpusTests {
     @Test("A class on several days and hours")
     func classSchedule() throws {
         let found = try #require(interpret("curso das 19h às 22h de segunda a quinta"))
-        #expect(ymd(found.date) == [2026, 9, 28])
-        #expect(hm(found.date) == [19, 0])
-        let end = try #require(found.end)
+        #expect(ymd(found.start.date) == [2026, 9, 28])
+        #expect(hm(found.start.date) == [19, 0])
+        let end = try #require(found.end?.date)
         #expect(ymd(end) == [2026, 10, 1])
         #expect(hm(end) == [22, 0])
     }

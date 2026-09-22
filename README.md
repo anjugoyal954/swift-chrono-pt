@@ -11,8 +11,8 @@ Natural-language date and time parsing for Brazilian Portuguese, in Swift.
 import ChronoPT
 
 let reminder = ChronoPT.interpret("comprar pão amanhã no almoço")
-reminder?.date     // tomorrow at 12:00
-reminder?.text     // "amanhã no almoço"
+reminder?.start.date  // tomorrow at 12:00
+reminder?.text        // "amanhã no almoço"
 ```
 
 ChronoPT reads text the way people write notes and reminders in Brazil:
@@ -83,8 +83,8 @@ the text. It returns `nil` when the text has no date.
 
 ```swift
 let note = ChronoPT.interpret("amanhã de manhã, reunião às 7")
-note?.date     // tomorrow at 7:00
-note?.hasTime  // true
+note?.start.date     // tomorrow at 7:00
+note?.start.hasTime  // true
 ```
 
 ### Every date in the text
@@ -105,8 +105,8 @@ Periods and ranges also fill `end`.
 
 ```swift
 let shift = ChronoPT.interpret("plantão de segunda a sexta das 9 às 18")
-shift?.date  // next Monday at 9:00
-shift?.end   // that Friday at 18:00
+shift?.start.date  // next Monday at 9:00
+shift?.end?.date   // that Friday at 18:00
 ```
 
 ### Repeating dates
@@ -116,8 +116,8 @@ counting today.
 
 ```swift
 let chore = ChronoPT.interpret("tirar o lixo toda terça às 20h")
-chore?.date        // next Tuesday at 20:00
-chore?.recurrence  // .weekly([.tuesday])
+chore?.start.date  // next Tuesday at 20:00
+chore?.recurrence  // .weekly(on: [.tuesday])
 ```
 
 ### Options
@@ -128,7 +128,7 @@ with no time is set to noon.
 ```swift
 let options = ParseOptions(allowsPast: true, defaultHour: 9)
 let paid = ChronoPT.interpret("paguei ontem", options: options)
-paid?.date  // yesterday at 9:00
+paid?.start.date  // yesterday at 9:00
 ```
 
 `allowsPast` covers words that point back, such as "ontem", "sexta passada"
@@ -154,16 +154,32 @@ let result = ChronoPT.interpret("sexta à noite", reference: someDate, calendar:
 public struct ParsedResult: Sendable, Equatable {
     public let range: Range<String.Index>  // where the expression is in the input
     public let text: String                // the expression as written
-    public let date: Date                  // the start; noon when the text gives no time
-    public let end: Date?                  // the end of a period or range
-    public let hasTime: Bool               // false when the text gives only the day
-    public let recurrence: Recurrence?     // .daily, .weekly([...]), .monthly(day:)
+    public let start: ParsedDate
+    public let end: ParsedDate?            // the end of a period or a range
+    public let recurrence: Recurrence?     // .daily, .weekly(on:), .monthly(day:)
+}
+
+public struct ParsedDate: Sendable, Equatable {
+    public let date: Date
+    public let knownComponents: Set<Calendar.Component>  // what the text fixed
+    public var hasTime: Bool { knownComponents.contains(.hour) }
 }
 ```
 
 A day without a time is set to noon, or to `defaultHour`, away from the
 midnight shifts of daylight saving time. Check `hasTime` before showing the
 hour.
+
+### What the text gave
+
+`knownComponents` says which parts of the date the text fixed. The rest comes
+from the reference date, so you can show "25/09" without inventing a year.
+
+```swift
+ChronoPT.interpret("25/09")?.start.knownComponents       // [.day, .month]
+ChronoPT.interpret("25/09/2027")?.start.knownComponents  // [.day, .month, .year]
+ChronoPT.interpret("às 9")?.start.knownComponents        // [.hour, .minute]
+```
 
 Every public symbol has documentation comments. To browse them as DocC
 documentation, open the package in Xcode and choose **Product › Build
@@ -196,9 +212,13 @@ Documentation**.
 
 ## Not supported yet
 
-Telling which parts of a date came from the text and which from the reference
-date is on the [roadmap](https://github.com/bertalhia/swift-chrono-pt/issues).
-"ter" is read as the verb "to have", never as Tuesday: write "terça".
+- "ter" is read as the verb "to have", never as Tuesday: write "terça".
+- A weekday needs its hint before the time, so "às 10 de quinta" gives 10:00,
+  not Thursday.
+- Repeating every few days or weeks: "a cada 15 dias", "de 2 em 2 semanas".
+
+What is missing is tracked in
+[issues](https://github.com/bertalhia/swift-chrono-pt/issues).
 Bug reports are welcome: include the text, the reference date and time zone,
 the result you got and the one you expected.
 

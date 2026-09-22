@@ -55,30 +55,30 @@ struct DayTests {
     ])
     func day(_ example: (text: String, day: [Int])) throws {
         let found = try #require(interpret(example.text))
-        #expect(ymd(found.date) == example.day)
-        #expect(found.hasTime == false)
-        #expect(hm(found.date) == [12, 0])
+        #expect(ymd(found.start.date) == example.day)
+        #expect(found.start.hasTime == false)
+        #expect(hm(found.start.date) == [12, 0])
     }
 
     @Test("\"Semana que vem\" is Monday to Sunday of the following week")
     func nextWeek() throws {
         let found = try #require(interpret("revisar contrato semana que vem"))
-        #expect(ymd(found.date) == [2026, 9, 28])
-        #expect(ymd(found.end) == [2026, 10, 4])
+        #expect(ymd(found.start.date) == [2026, 9, 28])
+        #expect(ymd(found.end?.date) == [2026, 10, 4])
     }
 
     @Test("\"Fim de semana\" is the coming Saturday and Sunday")
     func weekend() throws {
         let found = try #require(interpret("arrumar a garagem no fim de semana"))
-        #expect(ymd(found.date) == [2026, 9, 26])
-        #expect(ymd(found.end) == [2026, 9, 27])
+        #expect(ymd(found.start.date) == [2026, 9, 26])
+        #expect(ymd(found.end?.date) == [2026, 9, 27])
     }
 
     @Test("\"Mês que vem\" is the whole next month")
     func nextMonth() throws {
         let found = try #require(interpret("renovar o seguro mês que vem"))
-        #expect(ymd(found.date) == [2026, 10, 1])
-        #expect(ymd(found.end) == [2026, 10, 31])
+        #expect(ymd(found.start.date) == [2026, 10, 1])
+        #expect(ymd(found.end?.date) == [2026, 10, 31])
     }
 
     @Test("Named periods run from their first to their last day", arguments: [
@@ -94,9 +94,9 @@ struct DayTests {
     ])
     func namedPeriod(_ example: (text: String, start: [Int], end: [Int])) throws {
         let found = try #require(interpret(example.text))
-        #expect(ymd(found.date) == example.start)
-        #expect(ymd(found.end) == example.end)
-        #expect(found.hasTime == false)
+        #expect(ymd(found.start.date) == example.start)
+        #expect(ymd(found.end?.date) == example.end)
+        #expect(found.start.hasTime == false)
     }
 
     @Test("The start of next month is its first day, not the whole month", arguments: [
@@ -105,7 +105,7 @@ struct DayTests {
     ])
     func startOfNextMonth(_ text: String) throws {
         let found = try #require(interpret(text))
-        #expect(ymd(found.date) == [2026, 10, 1])
+        #expect(ymd(found.start.date) == [2026, 10, 1])
         #expect(found.end == nil)
     }
 
@@ -113,7 +113,7 @@ struct DayTests {
     func thisWeekOnSunday() throws {
         let sunday = monday.addingTimeInterval(6 * 86_400)
         let found = try #require(interpret("esta semana", reference: sunday))
-        #expect(ymd(found.date) == [2026, 9, 27])
+        #expect(ymd(found.start.date) == [2026, 9, 27])
         #expect(found.end == nil)
     }
 
@@ -139,24 +139,24 @@ struct DayTests {
     ])
     func holiday(_ example: (text: String, day: [Int])) throws {
         let found = try #require(interpret(example.text))
-        #expect(ymd(found.date) == example.day)
-        #expect(found.hasTime == false)
+        #expect(ymd(found.start.date) == example.day)
+        #expect(found.start.hasTime == false)
     }
 
     @Test("Carnival runs from Saturday to Tuesday")
     func carnival() throws {
         let found = try #require(interpret("viajar no carnaval"))
-        #expect(ymd(found.date) == [2027, 2, 6])
-        #expect(ymd(found.end) == [2027, 2, 9])
+        #expect(ymd(found.start.date) == [2027, 2, 6])
+        #expect(ymd(found.end?.date) == [2027, 2, 9])
     }
 
     @Test("A holiday that is already here counts from today")
     func holidayToday() throws {
         let found = try #require(interpret("no natal", reference: reference(2026, 12, 25)))
-        #expect(ymd(found.date) == [2026, 12, 25])
+        #expect(ymd(found.start.date) == [2026, 12, 25])
         let carnival = try #require(interpret("no carnaval", reference: reference(2027, 2, 7)))
-        #expect(ymd(carnival.date) == [2027, 2, 7])
-        #expect(ymd(carnival.end) == [2027, 2, 9])
+        #expect(ymd(carnival.start.date) == [2027, 2, 7])
+        #expect(ymd(carnival.end?.date) == [2027, 2, 9])
     }
 
     @Test("A holiday name with another meaning needs a preposition", arguments: [
@@ -172,7 +172,7 @@ struct DayTests {
     @Test("Natal the city is not Christmas")
     func natalCity() throws {
         let found = try #require(interpret("voo para Natal amanhã"))
-        #expect(ymd(found.date) == [2026, 9, 22])
+        #expect(ymd(found.start.date) == [2026, 9, 22])
     }
 
     @Test("A day range sets the first and the last day", arguments: [
@@ -191,9 +191,9 @@ struct DayTests {
     func dayRange(_ example: (text: String, start: [Int], end: [Int])) throws {
         let found = try #require(interpret(example.text))
         #expect(found.text == example.text)
-        #expect(ymd(found.date) == example.start)
-        #expect(ymd(found.end) == example.end)
-        #expect(found.hasTime == false)
+        #expect(ymd(found.start.date) == example.start)
+        #expect(ymd(found.end?.date) == example.end)
+        #expect(found.start.hasTime == false)
     }
 
     @Test("\"E\" closes a range only after \"entre\"", arguments: [
@@ -202,7 +202,7 @@ struct DayTests {
     ])
     func notADayRange(_ example: (text: String, day: [Int])) throws {
         let found = try #require(interpret(example.text))
-        #expect(ymd(found.date) == example.day)
+        #expect(ymd(found.start.date) == example.day)
         #expect(found.end == nil)
     }
 
@@ -210,9 +210,9 @@ struct DayTests {
     func dayAndTimeRange() throws {
         let found = try #require(interpret("plantão de segunda a sexta das 9 às 18"))
         #expect(found.text == "de segunda a sexta das 9 às 18")
-        #expect(ymd(found.date) == [2026, 9, 28])
-        #expect(hm(found.date) == [9, 0])
-        let end = try #require(found.end)
+        #expect(ymd(found.start.date) == [2026, 9, 28])
+        #expect(hm(found.start.date) == [9, 0])
+        let end = try #require(found.end?.date)
         #expect(ymd(end) == [2026, 10, 2])
         #expect(hm(end) == [18, 0])
     }
@@ -225,7 +225,7 @@ struct DayTests {
     ])
     func weekdayWithDate(_ example: (text: String, day: [Int])) throws {
         let found = try #require(interpret(example.text))
-        #expect(ymd(found.date) == example.day)
+        #expect(ymd(found.start.date) == example.day)
         #expect(parse(example.text).count == 1)
     }
 
@@ -235,8 +235,8 @@ struct DayTests {
     ])
     func abbreviatedWeekdayWithTime(_ example: (text: String, day: [Int], time: [Int])) throws {
         let found = try #require(interpret(example.text))
-        #expect(ymd(found.date) == example.day)
-        #expect(hm(found.date) == example.time)
+        #expect(ymd(found.start.date) == example.day)
+        #expect(hm(found.start.date) == example.time)
     }
 
     @Test("An abbreviation with another meaning is not a weekday", arguments: [
@@ -251,8 +251,8 @@ struct DayTests {
     @Test("\"Ter\" is the verb, not Tuesday")
     func terIsTheVerb() throws {
         let found = try #require(interpret("vou ter às 15 uma reunião"))
-        #expect(ymd(found.date) == [2026, 9, 21])
-        #expect(hm(found.date) == [15, 0])
+        #expect(ymd(found.start.date) == [2026, 9, 21])
+        #expect(hm(found.start.date) == [15, 0])
     }
 
     @Test("An ordinal is not a weekday", arguments: [
@@ -267,8 +267,8 @@ struct DayTests {
     @Test("A weekday that is also an ordinal counts when a time follows")
     func ordinalWithTime() throws {
         let found = try #require(interpret("consulta quinta às 14h"))
-        #expect(ymd(found.date) == [2026, 9, 24])
-        #expect(found.hasTime)
+        #expect(ymd(found.start.date) == [2026, 9, 24])
+        #expect(found.start.hasTime)
     }
 
     @Test("A date that does not exist is not a date", arguments: ["31/02", "29/02/2027", "32 de maio"])

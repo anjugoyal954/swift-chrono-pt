@@ -67,10 +67,44 @@ enum DayRules {
         var recurrence: Recurrence? {
             switch self {
             case .daily: .daily
-            case .weekly(let weekdays): .weekly(weekdays.map { DayRules.localeWeekdays[$0 - 1] })
+            case .weekly(let weekdays): .weekly(on: Set(weekdays.map { DayRules.localeWeekdays[$0 - 1] }))
             case .monthly(let day): .monthly(day: day)
             default: nil
             }
+        }
+
+        /// What the text fixes at the start; see `ParsedDate.knownComponents`.
+        /// A count from the reference ("amanhã", "semana que vem") fixes the
+        /// whole day; a month or a year period fixes only its month or year.
+        var knownComponents: Set<Calendar.Component> {
+            switch self {
+            case .days, .weeks, .months, .thisWeek, .nextWeek, .weekend, .lastWeek, .endOfMonth:
+                [.day, .month, .year]
+            case .weekday, .lastWeekday:
+                [.day, .month, .year, .weekday]
+            case .date(_, _, let year):
+                year == nil ? [.day, .month] : [.day, .month, .year]
+            case .dayOfMonth, .monthly:
+                [.day]
+            case .thisMonth, .nextMonth, .startOfNextMonth, .lastMonth:
+                [.month, .year]
+            case .nextYear, .lastYear:
+                [.year]
+            case .holiday:
+                [.day, .month]
+            case .daily:
+                []
+            case .weekly:
+                [.weekday]
+            case .range(let from, _):
+                from.knownComponents
+            }
+        }
+
+        /// What the text fixes at the end: the second day of a range, or the
+        /// same as the start for a period.
+        var endKnownComponents: Set<Calendar.Component> {
+            if case .range(_, let to) = self { to.knownComponents } else { knownComponents }
         }
     }
 
@@ -113,7 +147,13 @@ enum DayRules {
                 guard let start = source.rangeStart(from: first.piece.range, to: second.piece.range, bareStart: bareStart) else {
                     return nil
                 }
-                let piece = Piece(range: start..<second.piece.range.upperBound, value: Value.range(first.piece.value, second.piece.value))
+                // A day of the month takes the month of the end: "do dia 10 ao
+                // dia 15 de novembro".
+                var from = first.piece.value
+                if case .dayOfMonth(let day) = from, case let .date(last, month, year) = second.piece.value, day <= last {
+                    from = .date(day: day, month: month, year: year)
+                }
+                let piece = Piece(range: start..<second.piece.range.upperBound, value: Value.range(from, second.piece.value))
                 return Candidate(piece: piece, needsTime: false)
             }
         }
@@ -601,13 +641,7 @@ enum DayRules {
         case .range(let from, let to):
             // The end is the first time `to` comes from the start on: "de
             // segunda a sexta" said on a Monday runs from next Monday to that
-            // Friday. A day of the month takes the month of the end: "do dia
-            // 10 ao dia 15 de novembro".
-            let from: Value = if case .dayOfMonth(let day) = from, case let .date(last, month, year) = to, day <= last {
-                .date(day: day, month: month, year: year)
-            } else {
-                from
-            }
+            // Friday.
             guard let first = resolve(from, reference: reference, calendar: calendar),
                   var last = resolve(to, reference: reference, calendar: calendar) else { return nil }
             if (last.end ?? last.start) < first.start, let later = resolve(to, reference: first.start, calendar: calendar) {

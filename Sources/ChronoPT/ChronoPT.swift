@@ -107,30 +107,48 @@ public struct ParseOptions: Sendable, Equatable {
 public enum Recurrence: Sendable, Equatable {
     /// Every day: "todo dia", "todos os dias", "diariamente".
     case daily
-    /// On these weekdays every week, in the order the text gives them: "toda
-    /// terça", "às segundas e quartas".
-    case weekly([Locale.Weekday])
+    /// On these weekdays every week: "toda terça", "às segundas e quartas".
+    case weekly(on: Set<Locale.Weekday>)
     /// On this day of every month: "todo dia 5", "todo mês no dia 10".
     case monthly(day: Int)
 }
 
-/// A date found in the text.
+/// A date expression found in the text.
 public struct ParsedResult: Sendable, Equatable {
     /// Where the expression is in the input text.
     public let range: Range<String.Index>
     /// The expression as written in the text.
     public let text: String
-    /// The start. With no time in the text, it is noon of that day, or
+    /// When it starts.
+    public let start: ParsedDate
+    /// When it ends, for a period or a range: "semana que vem", "de segunda a
+    /// sexta", "das 14h às 16h".
+    public let end: ParsedDate?
+    /// How the date repeats, for "toda terça", "todo dia às 8" or "todo dia
+    /// 5"; `nil` for a single date. `start` is the next time it happens.
+    public let recurrence: Recurrence?
+}
+
+/// A point in time found in the text, and which of its parts the text gave.
+public struct ParsedDate: Sendable, Equatable {
+    /// The date. With no time in the text, it is noon of that day, or
     /// `ParseOptions.defaultHour`.
     public let date: Date
-    /// The end, when the expression is a period or a range ("semana que vem",
-    /// "de segunda a sexta", "das 14h às 16h").
-    public let end: Date?
-    /// `false` when the text gave only the day.
-    public let hasTime: Bool
-    /// How the date repeats, for "toda terça", "todo dia às 8" or "todo dia
-    /// 5"; `nil` for a single date. `date` is the next time it happens.
-    public let recurrence: Recurrence?
+
+    /// The calendar components the text fixes, by naming them ("25/09" names
+    /// the day and the month) or by counting from the reference date
+    /// ("amanhã" fixes the day, the month and the year).
+    ///
+    /// The other components come from the reference date or from defaults:
+    /// the year of "25/09", the hour of a day with no time, the day of a time
+    /// with no day. A part of the day such as "de manhã" gives `.hour` but not
+    /// `.minute`, and a weekday adds `.weekday`.
+    public let knownComponents: Set<Calendar.Component>
+
+    /// Whether the text gave a time: "às 9", "de manhã", "daqui 2 horas".
+    public var hasTime: Bool {
+        knownComponents.contains(.hour)
+    }
 }
 
 /// What `parse` and `interpret` share: the text, read only once.
@@ -172,7 +190,7 @@ struct Context {
     /// is next Monday.
     func combine(_ day: Piece<DayRules.Value>?, _ time: TimeRules.Expression?) -> ParsedResult? {
         guard let day, day.value.recurrence != nil,
-              let found = combine(day, time, from: reference), found.date < reference else {
+              let found = combine(day, time, from: reference), found.start.date < reference else {
             return combine(day, time, from: reference)
         }
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: reference))
@@ -185,7 +203,12 @@ struct Context {
             let recurrence = day.value.recurrence
             guard let time else {
                 guard let start = dayOnly(days.start) else { return nil }
-                return result(start, end: days.end.flatMap(dayOnly), hasTime: false, range: day.range, recurrence: recurrence)
+                return result(
+                    ParsedDate(date: start, knownComponents: day.value.knownComponents),
+                    end: days.end.flatMap(dayOnly).map { ParsedDate(date: $0, knownComponents: day.value.endKnownComponents) },
+                    range: day.range,
+                    recurrence: recurrence
+                )
             }
             let date: Date?
             let end: Date?
@@ -205,19 +228,27 @@ struct Context {
             let range = source.onlyConnectors(between: day.range, and: time.range)
                 ? min(day.range.lowerBound, time.range.lowerBound)..<max(day.range.upperBound, time.range.upperBound)
                 : day.range
-            return result(date, end: end, hasTime: true, range: range, recurrence: recurrence)
+            return result(
+                ParsedDate(date: date, knownComponents: day.value.knownComponents.union(time.knownComponents)),
+                end: end.map { ParsedDate(date: $0, knownComponents: day.value.endKnownComponents.union(time.knownComponents)) },
+                range: range,
+                recurrence: recurrence
+            )
         }
 
         guard let time, !time.needsDay else { return nil }
+        let known = time.knownComponents
         switch time.value {
         case .fromNow(let minutes):
-            return result(reference.addingTimeInterval(Double(minutes) * 60), end: nil, hasTime: true, range: time.range)
+            let date = reference.addingTimeInterval(Double(minutes) * 60)
+            return result(ParsedDate(date: date, knownComponents: known), end: nil, range: time.range)
         case .at(let clock):
             guard let day = upcomingDay(for: clock), let date = clock.on(day, calendar: calendar) else { return nil }
-            return result(date, end: nil, hasTime: true, range: time.range)
+            return result(ParsedDate(date: date, knownComponents: known), end: nil, range: time.range)
         case .between(let start, let until):
             guard let day = upcomingDay(for: start), let date = start.on(day, calendar: calendar) else { return nil }
-            return result(date, end: until.on(day, calendar: calendar), hasTime: true, range: time.range)
+            let end = until.on(day, calendar: calendar).map { ParsedDate(date: $0, knownComponents: known) }
+            return result(ParsedDate(date: date, knownComponents: known), end: end, range: time.range)
         }
     }
 
@@ -233,9 +264,8 @@ struct Context {
     }
 
     private func result(
-        _ date: Date,
-        end: Date?,
-        hasTime: Bool,
+        _ start: ParsedDate,
+        end: ParsedDate?,
         range: Range<String.Index>,
         recurrence: Recurrence? = nil
     ) -> ParsedResult {
@@ -243,9 +273,8 @@ struct Context {
         return ParsedResult(
             range: original,
             text: String(source.original[original]),
-            date: date,
+            start: start,
             end: end,
-            hasTime: hasTime,
             recurrence: recurrence
         )
     }

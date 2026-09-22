@@ -73,34 +73,34 @@ struct TimeTests {
     ])
     func time(_ example: (text: String, hour: Int, minute: Int)) throws {
         let found = try #require(interpret(example.text))
-        #expect(found.hasTime)
-        #expect(ymd(found.date) == [2026, 9, 22])
-        #expect(hm(found.date) == [example.hour, example.minute])
+        #expect(found.start.hasTime)
+        #expect(ymd(found.start.date) == [2026, 9, 22])
+        #expect(hm(found.start.date) == [example.hour, example.minute])
     }
 
     @Test("Midnight of a day is the start of the next day")
     func midnight() throws {
         let today = try #require(interpret("hoje à meia-noite"))
-        #expect(ymd(today.date) == [2026, 9, 22])
-        #expect(hm(today.date) == [0, 0])
+        #expect(ymd(today.start.date) == [2026, 9, 22])
+        #expect(hm(today.start.date) == [0, 0])
         let tomorrow = try #require(interpret("amanhã à meia-noite"))
-        #expect(ymd(tomorrow.date) == [2026, 9, 23])
+        #expect(ymd(tomorrow.start.date) == [2026, 9, 23])
         let spoken = try #require(interpret("às 12 da noite"))
-        #expect(ymd(spoken.date) == [2026, 9, 22])
-        #expect(hm(spoken.date) == [0, 0])
+        #expect(ymd(spoken.start.date) == [2026, 9, 22])
+        #expect(hm(spoken.start.date) == [0, 0])
     }
 
     @Test("With no day, it is today at that time, or tomorrow if it has passed")
     func noDay() throws {
         let before = try #require(interpret("comprar pão no almoço"))
-        #expect(before.hasTime)
-        #expect(ymd(before.date) == [2026, 9, 21])
-        #expect(hm(before.date) == [12, 0])
+        #expect(before.start.hasTime)
+        #expect(ymd(before.start.date) == [2026, 9, 21])
+        #expect(hm(before.start.date) == [12, 0])
         #expect(before.text == "no almoço")
 
         let afternoon = monday.addingTimeInterval(3 * 3600)
         let after = try #require(interpret("comprar pão no almoço", reference: afternoon))
-        #expect(ymd(after.date) == [2026, 9, 22])
+        #expect(ymd(after.start.date) == [2026, 9, 22])
     }
 
     @Test("A time with no day, written several ways", arguments: [
@@ -114,16 +114,16 @@ struct TimeTests {
     ])
     func noDayForms(_ example: (text: String, hour: Int)) throws {
         let found = try #require(interpret(example.text))
-        #expect(found.hasTime)
-        #expect(hm(found.date).first == example.hour)
-        #expect(found.date > monday)
+        #expect(found.start.hasTime)
+        #expect(hm(found.start.date).first == example.hour)
+        #expect(found.start.date > monday)
     }
 
     @Test("\"Daqui a\" counts from now")
     func fromNow() throws {
-        #expect(try #require(interpret("daqui 2 horas")).date == monday.addingTimeInterval(2 * 3600))
-        #expect(try #require(interpret("em meia hora")).date == monday.addingTimeInterval(30 * 60))
-        #expect(try #require(interpret("daqui a 20 minutos")).date == monday.addingTimeInterval(20 * 60))
+        #expect(try #require(interpret("daqui 2 horas")).start.date == monday.addingTimeInterval(2 * 3600))
+        #expect(try #require(interpret("em meia hora")).start.date == monday.addingTimeInterval(30 * 60))
+        #expect(try #require(interpret("daqui a 20 minutos")).start.date == monday.addingTimeInterval(20 * 60))
     }
 
     @Test("A bare number, a duration and a lone \"cedo\" are not times", arguments: [
@@ -156,14 +156,14 @@ struct TimeTests {
     ])
     func partOfDayThenClock(_ example: (text: String, hour: Int, minute: Int)) throws {
         let found = try #require(interpret(example.text))
-        #expect(ymd(found.date) == [2026, 9, 22])
-        #expect(hm(found.date) == [example.hour, example.minute])
+        #expect(ymd(found.start.date) == [2026, 9, 22])
+        #expect(hm(found.start.date) == [example.hour, example.minute])
     }
 
     @Test("A clock time in the other half of the day leaves the part of the day alone")
     func partOfDayThenOtherHalf() throws {
         let found = try #require(interpret("amanhã de manhã ligar pro João, jantar às 19h"))
-        #expect(hm(found.date) == [9, 0])
+        #expect(hm(found.start.date) == [9, 0])
         #expect(found.text == "amanhã de manhã")
     }
 
@@ -183,10 +183,10 @@ struct TimeTests {
     ])
     func timeRange(_ example: (text: String, start: [Int], end: [Int])) throws {
         let found = try #require(interpret(example.text))
-        #expect(found.hasTime)
-        #expect(ymd(found.date) == [2026, 9, 22])
-        #expect(hm(found.date) == example.start)
-        let end = try #require(found.end)
+        #expect(found.start.hasTime)
+        #expect(ymd(found.start.date) == [2026, 9, 22])
+        #expect(hm(found.start.date) == example.start)
+        let end = try #require(found.end?.date)
         #expect(ymd(end) == [2026, 9, 22])
         #expect(hm(end) == example.end)
     }
@@ -194,9 +194,9 @@ struct TimeTests {
     @Test("A time range past midnight ends the next day")
     func overnightRange() throws {
         let found = try #require(interpret("amanhã das 22h às 2h"))
-        #expect(ymd(found.date) == [2026, 9, 22])
-        #expect(hm(found.date) == [22, 0])
-        let end = try #require(found.end)
+        #expect(ymd(found.start.date) == [2026, 9, 22])
+        #expect(hm(found.start.date) == [22, 0])
+        let end = try #require(found.end?.date)
         #expect(ymd(end) == [2026, 9, 23])
         #expect(hm(end) == [2, 0])
     }
@@ -204,12 +204,12 @@ struct TimeTests {
     @Test("A time range with no day is today, or tomorrow if it has started")
     func rangeWithoutDay() throws {
         let later = try #require(interpret("reunião das 14h às 16h"))
-        #expect(ymd(later.date) == [2026, 9, 21])
-        #expect(hm(try #require(later.end)) == [16, 0])
+        #expect(ymd(later.start.date) == [2026, 9, 21])
+        #expect(hm(try #require(later.end?.date)) == [16, 0])
         let passed = try #require(interpret("academia das 8h às 9h"))
-        #expect(ymd(passed.date) == [2026, 9, 22])
-        #expect(ymd(passed.end) == [2026, 9, 22])
-        #expect(hm(try #require(passed.end)) == [9, 0])
+        #expect(ymd(passed.start.date) == [2026, 9, 22])
+        #expect(ymd(passed.end?.date) == [2026, 9, 22])
+        #expect(hm(try #require(passed.end?.date)) == [9, 0])
     }
 
     @Test("Two times joined by \"e\" without \"entre\" are not a range", arguments: [
@@ -218,7 +218,7 @@ struct TimeTests {
     ])
     func twoTimesAreNotARange(_ text: String) throws {
         let found = try #require(interpret(text))
-        #expect(hm(found.date) == [9, 0])
+        #expect(hm(found.start.date) == [9, 0])
         #expect(found.end == nil)
     }
 
@@ -226,20 +226,20 @@ struct TimeTests {
     func purposeIsNotATime() throws {
         #expect(interpret("comprar para a janta") == nil)
         let found = try #require(interpret("comprar para a janta amanhã"))
-        #expect(found.hasTime == false)
+        #expect(found.start.hasTime == false)
         #expect(found.text == "amanhã")
     }
 
     @Test("A part of the day also applies to periods and days of the month")
     func partOfDayWithPeriod() throws {
         let nextWeek = try #require(interpret("semana que vem de manhã"))
-        #expect(nextWeek.hasTime)
-        #expect(ymd(nextWeek.date) == [2026, 9, 28])
-        #expect(hm(nextWeek.date) == [9, 0])
-        #expect(ymd(nextWeek.end) == [2026, 10, 4])
+        #expect(nextWeek.start.hasTime)
+        #expect(ymd(nextWeek.start.date) == [2026, 9, 28])
+        #expect(hm(nextWeek.start.date) == [9, 0])
+        #expect(ymd(nextWeek.end?.date) == [2026, 10, 4])
 
         let day30 = try #require(interpret("dia 30 à noite"))
-        #expect(ymd(day30.date) == [2026, 9, 30])
-        #expect(hm(day30.date) == [19, 0])
+        #expect(ymd(day30.start.date) == [2026, 9, 30])
+        #expect(hm(day30.start.date) == [19, 0])
     }
 }

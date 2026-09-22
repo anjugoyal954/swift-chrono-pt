@@ -16,8 +16,8 @@ struct TextTests {
     func separateDayAndTime() throws {
         let found = try #require(interpret("amanhã comprar pão no almoço"))
         #expect(found.text == "amanhã")
-        #expect(found.hasTime)
-        #expect(hm(found.date) == [12, 0])
+        #expect(found.start.hasTime)
+        #expect(hm(found.start.date) == [12, 0])
     }
 
     @Test("The range points into the original text, accents and capitals included")
@@ -31,8 +31,8 @@ struct TextTests {
     func severalDates() {
         let found = parse("dentista sexta às 14h, reunião dia 30 e ligar pro banco amanhã")
         #expect(found.map(\.text) == ["sexta às 14h", "dia 30", "amanhã"])
-        #expect(found.map { ymd($0.date) } == [[2026, 9, 25], [2026, 9, 30], [2026, 9, 22]])
-        #expect(found.map(\.hasTime) == [true, false, false])
+        #expect(found.map { ymd($0.start.date) } == [[2026, 9, 25], [2026, 9, 30], [2026, 9, 22]])
+        #expect(found.map(\.start.hasTime) == [true, false, false])
     }
 
     @Test("A range comes out as one expression, opening word included")

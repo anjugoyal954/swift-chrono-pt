@@ -64,6 +64,22 @@ enum TimeRules {
         var isPast: Bool {
             if case .fromNow(let minutes) = value { minutes < 0 } else { false }
         }
+
+        /// What the time fixes; see `ParsedDate.knownComponents`. A clock time
+        /// gives the hour and the minute, a part of the day only the hour, and
+        /// a time from now the whole date.
+        var knownComponents: Set<Calendar.Component> {
+            switch value {
+            case .fromNow:
+                [.day, .month, .year, .hour, .minute]
+            case .between:
+                [.hour, .minute]
+            case .at:
+                pieces.contains { piece in
+                    if case let .clock(_, _, _, _, needsEnd) = piece.value { !needsEnd } else { false }
+                } ? [.hour, .minute] : [.hour]
+            }
+        }
     }
 
     /// The times mentioned in the text, in text order.

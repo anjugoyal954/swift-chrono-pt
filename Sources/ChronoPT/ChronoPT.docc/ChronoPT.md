@@ -9,7 +9,7 @@ Brazilian Portuguese: "amanhã no almoço", "sexta às 14h", "dia 30 à noite".
 
 ```swift
 let reminder = ChronoPT.interpret("comprar pão amanhã no almoço")
-// reminder?.date is tomorrow at 12:00
+// reminder?.start.date is tomorrow at 12:00
 // reminder?.text is "amanhã no almoço"
 ```
 
@@ -33,17 +33,23 @@ calendar.timeZone = TimeZone(identifier: "America/Sao_Paulo")!
 let results = ChronoPT.parse(text, reference: now, calendar: calendar)
 ```
 
+### What the text gave
+
+``ParsedDate/knownComponents`` says which parts of the date the text fixed.
+The rest comes from the reference date, so "25/09" gives `[.day, .month]` and
+you can show it without inventing a year.
+
 ### Repeating and past dates
 
 ``ParsedResult/recurrence`` says how a date repeats ("toda terça", "todo dia
-às 8", "todo dia 5"), and ``ParsedResult/date`` is the next time it happens.
+às 8", "todo dia 5"), and ``ParsedResult/start`` is the next time it happens.
 Past dates ("ontem", "sexta passada", "há 2 dias") count only with
 ``ParseOptions/allowsPast``.
 
 ### Dates without a time
 
-When the text gives only a day, ``ParsedResult/date`` is noon of that day, or
-``ParseOptions/defaultHour``, and ``ParsedResult/hasTime`` is `false`. Noon keeps the date away from the
+When the text gives only a day, ``ParsedDate/date`` is noon of that day, or
+``ParseOptions/defaultHour``, and ``ParsedDate/hasTime`` is `false`. Noon keeps the date away from the
 midnight shifts of daylight saving time.
 
 ## Topics
@@ -57,4 +63,5 @@ midnight shifts of daylight saving time.
 ### Results
 
 - ``ParsedResult``
+- ``ParsedDate``
 - ``Recurrence``

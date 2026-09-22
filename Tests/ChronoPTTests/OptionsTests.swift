@@ -21,8 +21,8 @@ struct OptionsTests {
     func pastDay(_ example: (text: String, day: [Int])) throws {
         #expect(interpret(example.text) == nil)
         let found = try #require(interpret(example.text, options: Self.past))
-        #expect(ymd(found.date) == example.day)
-        #expect(found.hasTime == false)
+        #expect(ymd(found.start.date) == example.day)
+        #expect(found.start.hasTime == false)
     }
 
     @Test("Past periods run from their first to their last day", arguments: [
@@ -34,8 +34,8 @@ struct OptionsTests {
     func pastPeriod(_ example: (text: String, start: [Int], end: [Int])) throws {
         #expect(interpret(example.text) == nil)
         let found = try #require(interpret(example.text, options: Self.past))
-        #expect(ymd(found.date) == example.start)
-        #expect(ymd(found.end) == example.end)
+        #expect(ymd(found.start.date) == example.start)
+        #expect(ymd(found.end?.date) == example.end)
     }
 
     @Test("Past times need allowsPast", arguments: [
@@ -47,8 +47,8 @@ struct OptionsTests {
     func pastTime(_ example: (text: String, day: [Int], time: [Int])) throws {
         #expect(interpret(example.text) == nil)
         let found = try #require(interpret(example.text, options: Self.past))
-        #expect(ymd(found.date) == example.day)
-        #expect(hm(found.date) == example.time)
+        #expect(ymd(found.start.date) == example.day)
+        #expect(hm(found.start.date) == example.time)
     }
 
     @Test("Without allowsPast, a past day never reads as a future one")
@@ -61,20 +61,20 @@ struct OptionsTests {
     @Test("allowsPast leaves future dates alone")
     func futureWithPast() throws {
         let found = try #require(interpret("amanhã às 9", options: Self.past))
-        #expect(ymd(found.date) == [2026, 9, 22])
-        #expect(hm(found.date) == [9, 0])
+        #expect(ymd(found.start.date) == [2026, 9, 22])
+        #expect(hm(found.start.date) == [9, 0])
     }
 
     @Test("defaultHour sets the time of a day with no time")
     func defaultHour() throws {
         let options = ParseOptions(defaultHour: 9)
         let day = try #require(interpret("pagar amanhã", options: options))
-        #expect(hm(day.date) == [9, 0])
-        #expect(day.hasTime == false)
+        #expect(hm(day.start.date) == [9, 0])
+        #expect(day.start.hasTime == false)
         let week = try #require(interpret("semana que vem", options: options))
-        #expect(hm(try #require(week.end)) == [9, 0])
+        #expect(hm(try #require(week.end?.date)) == [9, 0])
         let clock = try #require(interpret("amanhã às 15h", options: options))
-        #expect(hm(clock.date) == [15, 0])
+        #expect(hm(clock.start.date) == [15, 0])
     }
 
     @Test("defaultHour stays between 0 and 23")
@@ -82,6 +82,6 @@ struct OptionsTests {
         #expect(ParseOptions(defaultHour: 30).defaultHour == 23)
         #expect(ParseOptions(defaultHour: -1).defaultHour == 0)
         let found = try #require(interpret("amanhã", options: ParseOptions(defaultHour: 30)))
-        #expect(hm(found.date) == [23, 0])
+        #expect(hm(found.start.date) == [23, 0])
     }
 }

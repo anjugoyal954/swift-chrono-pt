@@ -9,13 +9,13 @@ struct ReadmeTests {
     @Test("Code examples")
     func codeExamples() throws {
         let reminder = try #require(interpret("comprar pão amanhã no almoço"))
-        #expect(ymd(reminder.date) == [2026, 9, 22])
-        #expect(hm(reminder.date) == [12, 0])
+        #expect(ymd(reminder.start.date) == [2026, 9, 22])
+        #expect(hm(reminder.start.date) == [12, 0])
         #expect(reminder.text == "amanhã no almoço")
 
         let note = try #require(interpret("amanhã de manhã, reunião às 7"))
-        #expect(hm(note.date) == [7, 0])
-        #expect(note.hasTime)
+        #expect(hm(note.start.date) == [7, 0])
+        #expect(note.start.hasTime)
 
         let text = "dentista sexta às 14h, reunião dia 30 e ligar pro banco amanhã"
         let found = parse(text)
@@ -23,28 +23,28 @@ struct ReadmeTests {
         #expect(text[found[0].range] == "sexta às 14h")
 
         let shift = try #require(interpret("plantão de segunda a sexta das 9 às 18"))
-        #expect(ymd(shift.date) == [2026, 9, 28])
-        #expect(hm(shift.date) == [9, 0])
-        let end = try #require(shift.end)
+        #expect(ymd(shift.start.date) == [2026, 9, 28])
+        #expect(hm(shift.start.date) == [9, 0])
+        let end = try #require(shift.end?.date)
         #expect(ymd(end) == [2026, 10, 2])
         #expect(hm(end) == [18, 0])
 
         let chore = try #require(interpret("tirar o lixo toda terça às 20h"))
-        #expect(ymd(chore.date) == [2026, 9, 22])
-        #expect(hm(chore.date) == [20, 0])
-        #expect(chore.recurrence == .weekly([.tuesday]))
+        #expect(ymd(chore.start.date) == [2026, 9, 22])
+        #expect(hm(chore.start.date) == [20, 0])
+        #expect(chore.recurrence == .weekly(on: [.tuesday]))
 
         let paid = try #require(interpret("paguei ontem", options: ParseOptions(allowsPast: true, defaultHour: 9)))
-        #expect(ymd(paid.date) == [2026, 9, 20])
-        #expect(hm(paid.date) == [9, 0])
+        #expect(ymd(paid.start.date) == [2026, 9, 20])
+        #expect(hm(paid.start.date) == [9, 0])
     }
 
     @Test("Accents and capitals are optional")
     func accentsAndCapitals() throws {
         let clock = try #require(interpret("AMANHA as 9"))
-        #expect(ymd(clock.date) == [2026, 9, 22])
-        #expect(hm(clock.date) == [9, 0])
-        #expect(hm(try #require(interpret("amanhã no almoco")).date) == [12, 0])
+        #expect(ymd(clock.start.date) == [2026, 9, 22])
+        #expect(hm(clock.start.date) == [9, 0])
+        #expect(hm(try #require(interpret("amanhã no almoco")).start.date) == [12, 0])
     }
 
     @Test("Every example in the table parses")
@@ -64,11 +64,11 @@ struct ReadmeTests {
                 switch kind {
                 case "Relative day", "Weekday", "Date", "Period", "Holiday":
                     let found = interpret(example)
-                    #expect(found?.hasTime == false, "\(kind): \(example)")
+                    #expect(found?.start.hasTime == false, "\(kind): \(example)")
                 case "Clock time", "Part of the day", "Moment":
-                    #expect(interpret("amanhã " + example)?.hasTime == true, "\(kind): \(example)")
+                    #expect(interpret("amanhã " + example)?.start.hasTime == true, "\(kind): \(example)")
                 case "From now":
-                    #expect(interpret(example)?.hasTime == true, "\(kind): \(example)")
+                    #expect(interpret(example)?.start.hasTime == true, "\(kind): \(example)")
                 case "Range":
                     #expect(interpret(example)?.end != nil, "\(kind): \(example)")
                 case "Repeating":
