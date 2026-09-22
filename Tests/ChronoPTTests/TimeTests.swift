@@ -69,7 +69,13 @@ struct TimeTests {
         ("amanhã ao final da tarde", 18, 0),
         ("amanhã ao fim do dia", 18, 0),
         ("amanhã dps do almoço", 14, 0),
-        ("amn às 11", 11, 0)
+        ("amn às 11", 11, 0),
+        ("amanhã de manhã bem cedo", 7, 0),
+        ("amanhã de manhã bem cedinho", 7, 0),
+        ("amanhã no meio dia", 12, 0),
+        ("amanhã até o fim do dia", 18, 0),
+        ("amanhã até o final do expediente", 18, 0),
+        ("amanhã até o fim da manhã", 11, 0)
     ])
     func time(_ example: (text: String, hour: Int, minute: Int)) throws {
         let found = try #require(interpret(example.text))
@@ -179,7 +185,10 @@ struct TimeTests {
         ("amanhã das 7 às 9", [19, 0], [21, 0]),
         ("amanhã das 10 às 2", [10, 0], [14, 0]),
         ("amanhã de 2 a 3 da tarde", [14, 0], [15, 0]),
-        ("amanhã à noite, das 8 às 10", [20, 0], [22, 0])
+        ("amanhã à noite, das 8 às 10", [20, 0], [22, 0]),
+        ("reunião amanhã 10 às 12", [10, 0], [12, 0]),
+        ("amanhã 9-10h", [9, 0], [10, 0]),
+        ("amanhã 14-16h", [14, 0], [16, 0])
     ])
     func timeRange(_ example: (text: String, start: [Int], end: [Int])) throws {
         let found = try #require(interpret(example.text))

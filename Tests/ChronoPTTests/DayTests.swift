@@ -51,7 +51,9 @@ struct DayTests {
         ("sex que vem", [2026, 9, 25]),
         ("no sáb", [2026, 9, 26]),
         ("dom que vem", [2026, 9, 27]),
-        ("prox sexta", [2026, 9, 25])
+        ("prox sexta", [2026, 9, 25]),
+        ("fim do mês que vem", [2026, 10, 31]),
+        ("final do mês que vem", [2026, 10, 31])
     ])
     func day(_ example: (text: String, day: [Int])) throws {
         let found = try #require(interpret(example.text))
@@ -90,6 +92,9 @@ struct DayTests {
         ("trocar de carro ano que vem", [2027, 1, 1], [2027, 12, 31]),
         ("no próximo ano", [2027, 1, 1], [2027, 12, 31]),
         ("prox semana", [2026, 9, 28], [2026, 10, 4]),
+        ("fim de semana que vem", [2026, 10, 3], [2026, 10, 4]),
+        ("próximo fim de semana", [2026, 10, 3], [2026, 10, 4]),
+        ("final de semana que vem", [2026, 10, 3], [2026, 10, 4]),
         ("de seg a sex", [2026, 9, 28], [2026, 10, 2])
     ])
     func namedPeriod(_ example: (text: String, start: [Int], end: [Int])) throws {

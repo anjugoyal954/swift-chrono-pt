@@ -29,7 +29,8 @@ struct OptionsTests {
         ("semana passada", [2026, 9, 14], [2026, 9, 20]),
         ("no mês passado", [2026, 8, 1], [2026, 8, 31]),
         ("ano passado", [2025, 1, 1], [2025, 12, 31]),
-        ("de ontem até sexta", [2026, 9, 20], [2026, 9, 25])
+        ("de ontem até sexta", [2026, 9, 20], [2026, 9, 25]),
+        ("fim de semana passado", [2026, 9, 19], [2026, 9, 20])
     ])
     func pastPeriod(_ example: (text: String, start: [Int], end: [Int])) throws {
         #expect(interpret(example.text) == nil)

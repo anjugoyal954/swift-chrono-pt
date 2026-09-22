@@ -202,6 +202,12 @@ struct Context {
     }
 
     private func combine(_ day: Piece<DayRules.Value>?, _ time: TimeRules.Expression?, from dayReference: Date) -> ParsedResult? {
+        // An interval of hours counts from now, not from a day: "de 8 em 8 horas".
+        if let day, time == nil, case .interval(let components) = day.value, components.hour != nil || components.minute != nil {
+            guard let date = calendar.date(byAdding: components, to: reference) else { return nil }
+            let start = ParsedDate(date: date, knownComponents: [.day, .month, .year, .hour, .minute])
+            return result(start, end: nil, range: day.range, recurrence: day.value.recurrence)
+        }
         if let day {
             guard let days = resolve(day, from: dayReference) else { return nil }
             let recurrence = day.value.recurrence

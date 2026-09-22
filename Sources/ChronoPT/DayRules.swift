@@ -25,11 +25,14 @@ enum DayRules {
         case dayOfMonth(Int)
         case thisWeek
         case nextWeek
-        case weekend
+        /// Weeks from the coming weekend: 0 is this one, 1 is "fim de semana
+        /// que vem", -1 is "fim de semana passado".
+        case weekend(weeks: Int)
         case thisMonth
         case nextMonth
         case startOfNextMonth
-        case endOfMonth
+        /// Months from this one: 0 is "fim do mês", 1 is "fim do mês que vem".
+        case endOfMonth(months: Int)
         case nextYear
         case holiday(Holiday)
         /// The last time that weekday came, before today: "sexta passada".
@@ -59,7 +62,7 @@ enum DayRules {
         /// `ParseOptions.allowsPast`.
         var isPast: Bool {
             switch self {
-            case .days(let count), .weeks(let count), .months(let count): count < 0
+            case .days(let count), .weeks(let count), .months(let count), .weekend(let count): count < 0
             case .lastWeekday, .lastWeek, .lastMonth, .lastYear: true
             case .range(let from, let to): from.isPast || to.isPast
             default: false
@@ -232,7 +235,13 @@ enum DayRules {
         }
 
         for match in text.matches(of: everyUnit) {
-            add(match.range, .interval(components(1, unit: match.output.contains("semana") ? "semana" : "mes")))
+            let unit = if match.output.contains("hora") { "hora" } else if match.output.contains("semana") { "semana" } else { "mes" }
+            add(match.range, .interval(components(1, unit: unit)))
+        }
+
+        for match in text.matches(of: monthlyDay) {
+            guard let day = dayNumber(match.output.1), (1...31).contains(day) else { continue }
+            add(match.range, .monthly(day))
         }
 
         for match in text.matches(of: everyMonth) {
@@ -301,18 +310,22 @@ enum DayRules {
 
         for match in text.matches(of: namedPeriod) {
             let value: Value = switch match.output.1 {
+            case "fim de semana que vem", "final de semana que vem", "proximo fim de semana", "proximo final de semana":
+                .weekend(weeks: 1)
+            case "fim de semana passado", "final de semana passado": .weekend(weeks: -1)
+            case "fim do mes que vem", "final do mes que vem": .endOfMonth(months: 1)
             case "esta semana", "essa semana", "nesta semana", "nessa semana": .thisWeek
             case "semana que vem", "proxima semana", "prox semana", "essa semana que vem", "esta semana que vem": .nextWeek
             case "este mes", "esse mes", "neste mes", "nesse mes": .thisMonth
             case "mes que vem", "proximo mes", "prox mes": .nextMonth
             case "comeco do mes que vem", "inicio do mes que vem", "comeco do proximo mes", "inicio do proximo mes":
                 .startOfNextMonth
-            case "fim do mes", "final do mes": .endOfMonth
+            case "fim do mes", "final do mes": .endOfMonth(months: 0)
             case "ano que vem", "proximo ano", "prox ano": .nextYear
             case "semana passada": .lastWeek
             case "mes passado": .lastMonth
             case "ano passado": .lastYear
-            default: .weekend
+            default: .weekend(weeks: 0)
             }
             add(match.range, value)
         }
@@ -359,7 +372,7 @@ enum DayRules {
     // "a cada 15 dias", "cada 2 meses"
     private static var everyInterval: Regex<(Substring, Substring, Substring)> {
         RegexCache.regex {
-            #/\b(?:a )?cada (\d{1,3}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta) (dias?|semanas?|mes|meses)\b/#
+            #/\b(?:a )?cada (\d{1,3}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta) (horas?|minutos?|min|dias?|semanas?|mes|meses)\b/#
                 .wordBoundaryKind(.simple)
         }
     }
@@ -367,7 +380,7 @@ enum DayRules {
     // "de 2 em 2 semanas"
     private static var fromToInterval: Regex<(Substring, Substring, Substring, Substring)> {
         RegexCache.regex {
-            #/\bde (\d{1,3}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta) em (\d{1,3}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta) (dias?|semanas?|mes|meses)\b/#
+            #/\bde (\d{1,3}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta) em (\d{1,3}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta) (horas?|minutos?|min|dias?|semanas?|mes|meses)\b/#
                 .wordBoundaryKind(.simple)
         }
     }
@@ -375,7 +388,7 @@ enum DayRules {
     // "toda semana", "todo mês", "semanalmente", "mensalmente"
     private static var everyUnit: Regex<Substring> {
         RegexCache.regex {
-            #/\b(?:toda(?:s as)? semanas?|todo(?:s os)? (?:mes|meses)|semanalmente|mensalmente)\b/#
+            #/\b(?:toda(?:s as)? semanas?|todo(?:s os)? (?:mes|meses)|semanalmente|mensalmente|de hora em hora|a cada hora)\b/#
                 .wordBoundaryKind(.simple)
         }
     }
@@ -384,6 +397,14 @@ enum DayRules {
     private static var everyDay: Regex<Substring> {
         RegexCache.regex {
             #/\b(?:todo dia|todos os dias|todo santo dia|diariamente)\b/#.wordBoundaryKind(.simple)
+        }
+    }
+
+    // "dia 10 de cada mês", "no dia 5 de todo mês"
+    private static var monthlyDay: Regex<(Substring, Substring)> {
+        RegexCache.regex {
+            #/\b(?:no |em )?dia (\d{1,2}|primeiro|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)\b de (?:cada|todo o|todo) mes\b/#
+                .wordBoundaryKind(.simple)
         }
     }
 
@@ -457,7 +478,7 @@ enum DayRules {
 
     private static var namedPeriod: Regex<(Substring, Substring)> {
         RegexCache.regex {
-            #/\b(esta semana que vem|essa semana que vem|esta semana|essa semana|nesta semana|nessa semana|semana que vem|proxima semana|prox semana|fim de semana|final de semana|fds|este mes|esse mes|neste mes|nesse mes|(?:comeco|inicio) do (?:mes que vem|proximo mes)|mes que vem|proximo mes|prox mes|fim do mes|final do mes|ano que vem|proximo ano|prox ano|semana passada|mes passado|ano passado)\b/#
+            #/\b(esta semana que vem|essa semana que vem|esta semana|essa semana|nesta semana|nessa semana|semana que vem|proxima semana|prox semana|fim de semana que vem|final de semana que vem|proximo fim de semana|proximo final de semana|fim de semana passado|final de semana passado|fim de semana|final de semana|fds|este mes|esse mes|neste mes|nesse mes|(?:comeco|inicio) do (?:mes que vem|proximo mes)|mes que vem|proximo mes|prox mes|fim do mes que vem|final do mes que vem|fim do mes|final do mes|ano que vem|proximo ano|prox ano|semana passada|mes passado|ano passado)\b/#
                 .wordBoundaryKind(.simple)
         }
     }
@@ -506,7 +527,9 @@ enum DayRules {
 
     /// Days, weeks or months, ready for `Calendar.date(byAdding:to:)`.
     private static func components(_ count: Int, unit: some StringProtocol) -> DateComponents {
-        if unit.hasPrefix("dia") { DateComponents(day: count) }
+        if unit.hasPrefix("hora") { DateComponents(hour: count) }
+        else if unit.hasPrefix("min") { DateComponents(minute: count) }
+        else if unit.hasPrefix("dia") { DateComponents(day: count) }
         else if unit.hasPrefix("semana") { DateComponents(weekOfYear: count) }
         else { DateComponents(month: count) }
     }
@@ -615,14 +638,16 @@ enum DayRules {
                   let sunday = calendar.date(byAdding: .day, value: 6, to: monday) else { return nil }
             return (monday, sunday)
 
-        case .weekend:
+        case .weekend(let weeks):
             let weekday = calendar.component(.weekday, from: today)
             // On Saturday it is this weekend; on Sunday, what is left of it.
-            if weekday == 1 { return (today, nil) }
-            let saturday = weekday == 7
+            if weeks == 0, weekday == 1 { return (today, nil) }
+            let coming = weekday == 7
                 ? today
                 : calendar.nextDate(after: today, matching: DateComponents(weekday: 7), matchingPolicy: .nextTime)
-            guard let saturday, let sunday = calendar.date(byAdding: .day, value: 1, to: saturday) else { return nil }
+            guard let coming,
+                  let saturday = calendar.date(byAdding: .day, value: 7 * weeks, to: coming),
+                  let sunday = calendar.date(byAdding: .day, value: 1, to: saturday) else { return nil }
             return (saturday, sunday)
 
         case .thisMonth:
@@ -644,8 +669,9 @@ enum DayRules {
                   let last = calendar.date(byAdding: DateComponents(year: 1, day: -1), to: first) else { return nil }
             return (first, last)
 
-        case .endOfMonth:
-            return lastDayOfMonth(today, calendar: calendar).map { ($0, nil) }
+        case .endOfMonth(let months):
+            guard let month = calendar.date(byAdding: .month, value: months, to: today) else { return nil }
+            return lastDayOfMonth(month, calendar: calendar).map { ($0, nil) }
 
         case .lastWeekday(let weekday):
             return calendar.nextDate(

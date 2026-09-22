@@ -272,7 +272,10 @@ enum TimeRules {
     /// range: "de 9" in "de 9 a 11h". It counts only with an end.
     private static func rangeStarts(in source: TextSource) -> [Piece<Value>] {
         source.normalized.matches(of: bareRangeStart).compactMap { match in
-            guard let hour = SpokenNumber.value(match.output.1), (0...23).contains(hour) else { return nil }
+            // Not a number inside a date or a clock time: "25/09 às 14:00".
+            let before = source.normalized[..<match.range.lowerBound].last
+            guard before.map({ !"/:-0123456789".contains($0) }) ?? true,
+                  let hour = SpokenNumber.value(match.output.1), (0...23).contains(hour) else { return nil }
             let value = Value.clock(hour: hour, minute: 0, ambiguous: (1...11).contains(hour), nextDay: false, needsEnd: true)
             return Piece(range: match.range, value: value)
         }
@@ -354,10 +357,10 @@ enum TimeRules {
         }
     }
 
-    // "de 9 a 11h", "entre 10 e 11h"
+    // "de 9 a 11h", "entre 10 e 11h", "10 às 12", "9-10h"
     private static var bareRangeStart: Regex<(Substring, Substring)> {
         RegexCache.regex {
-            #/\b(?:de|entre) (\d{1,2}|vinte e uma|vinte e um|vinte e duas|vinte e dois|vinte e tres|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|duas|uma)\b(?= (?:a|as|ate|e) )/#
+            #/\b(?:(?:de|entre) )?(\d{1,2}|vinte e uma|vinte e um|vinte e duas|vinte e dois|vinte e tres|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|duas|uma)\b(?= ?-| (?:a|as|ate|e) )/#
                 .wordBoundaryKind(.simple)
         }
     }
@@ -365,7 +368,7 @@ enum TimeRules {
     // "ao meio-dia", "meio-dia e meia", "à meia-noite"
     private static var noonOrMidnight: Regex<(Substring, Substring?, Substring, Substring?)> {
         RegexCache.regex {
-            #/\b(?:(ao|a|as|pelo|pela|por volta do|por volta da|la pelo|la pela|ate o|ate a) )?(meio-dia|meio dia|meia-noite|meia noite)(?: e (meia|quinze|vinte|trinta|quarenta|cinco|dez|\d{1,2})\b)?\b/#
+            #/\b(?:(ao|a|as|no|pelo|pela|por volta do|por volta da|la pelo|la pela|ate o|ate a) )?(meio-dia|meio dia|meia-noite|meia noite)(?: e (meia|quinze|vinte|trinta|quarenta|cinco|dez|\d{1,2})\b)?\b/#
                 .wordBoundaryKind(.simple)
         }
     }
@@ -415,18 +418,18 @@ enum TimeRules {
         Period(phrases: ["no lanche da tarde", "no cafe da tarde", "na hora do lanche"], hour: 16),
         Period(phrases: ["antes de dormir", "na hora de dormir"], hour: 22),
         Period(phrases: ["ao acordar", "quando acordar", "quando eu acordar", "assim que acordar"], hour: 7),
-        Period(phrases: ["depois do trabalho", "depois do expediente", "dps do trabalho", "dps do expediente", "no fim do expediente", "saindo do trabalho"], hour: 18),
+        Period(phrases: ["depois do trabalho", "depois do expediente", "dps do trabalho", "dps do expediente", "no fim do expediente", "ate o fim do expediente", "ate o final do expediente", "saindo do trabalho"], hour: 18),
         Period(phrases: ["de madrugada", "na madrugada", "pela madrugada"], hour: 5),
-        Period(phrases: ["de manha cedo", "de manhazinha", "logo cedo", "bem cedo", "cedinho"], hour: 7),
+        Period(phrases: ["de manha cedo", "de manha bem cedo", "de manha bem cedinho", "bem cedo de manha", "de manhazinha", "logo cedo", "bem cedo", "cedinho"], hour: 7),
         Period(phrases: ["cedo"], hour: 7, needsDay: true),
         Period(phrases: ["no meio da manha"], hour: 10),
-        Period(phrases: ["no fim da manha", "no final da manha"], hour: 11),
+        Period(phrases: ["no fim da manha", "no final da manha", "ate o fim da manha", "ate o final da manha"], hour: 11),
         Period(phrases: ["de manha", "pela manha", "na parte da manha", "esta manha", "essa manha", "nesta manha", "nessa manha"], hour: 9),
         Period(phrases: ["no comeco da tarde", "no inicio da tarde"], hour: 13),
         Period(phrases: ["no meio da tarde"], hour: 15),
         Period(phrases: ["a tarde", "de tarde", "pela tarde", "na parte da tarde", "esta tarde", "essa tarde", "nesta tarde", "nessa tarde"], hour: 15),
-        Period(phrases: ["no fim da tarde", "no final da tarde", "no fim de tarde", "ao fim da tarde", "ao final da tarde", "a tardinha", "de tardinha"], hour: 18),
-        Period(phrases: ["no fim do dia", "no final do dia", "ao fim do dia", "ao final do dia"], hour: 18),
+        Period(phrases: ["no fim da tarde", "no final da tarde", "no fim de tarde", "ao fim da tarde", "ao final da tarde", "ate o fim da tarde", "ate o final da tarde", "a tardinha", "de tardinha"], hour: 18),
+        Period(phrases: ["no fim do dia", "no final do dia", "ao fim do dia", "ao final do dia", "ate o fim do dia", "ate o final do dia"], hour: 18),
         Period(phrases: ["a noitinha", "de noitinha", "no comeco da noite", "no inicio da noite"], hour: 19),
         Period(phrases: ["a noite", "de noite", "pela noite", "na parte da noite", "esta noite", "essa noite", "nesta noite", "nessa noite"], hour: 19),
         Period(phrases: ["tarde da noite"], hour: 23)

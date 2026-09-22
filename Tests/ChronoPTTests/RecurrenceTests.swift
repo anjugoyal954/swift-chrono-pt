@@ -25,7 +25,9 @@ struct RecurrenceTests {
         ("todo sábado", [2026, 9, 26], Recurrence.weekly(on: [.saturday])),
         ("regar as plantas diariamente", [2026, 9, 21], .daily),
         ("pagar aluguel todo dia 5", [2026, 10, 5], .monthly(day: 5)),
-        ("todo mês no dia 10", [2026, 10, 10], .monthly(day: 10))
+        ("todo mês no dia 10", [2026, 10, 10], .monthly(day: 10)),
+        ("pagar no dia 10 de cada mês", [2026, 10, 10], .monthly(day: 10)),
+        ("no dia 5 de todo mês", [2026, 10, 5], .monthly(day: 5))
     ])
     func dayOnly(_ example: (text: String, day: [Int], recurrence: Recurrence)) throws {
         let found = try #require(interpret(example.text))
@@ -45,6 +47,20 @@ struct RecurrenceTests {
     func interval(_ example: (text: String, day: [Int], recurrence: Recurrence)) throws {
         let found = try #require(interpret(example.text))
         #expect(ymd(found.start.date) == example.day)
+        #expect(found.recurrence == example.recurrence)
+    }
+
+    @Test("Intervals of hours and minutes count from now", arguments: [
+        ("tomar de 8 em 8 horas", [18, 0], Recurrence.every(DateComponents(hour: 8))),
+        ("a cada 6 horas", [16, 0], .every(DateComponents(hour: 6))),
+        ("de hora em hora", [11, 0], .every(DateComponents(hour: 1))),
+        ("a cada 30 minutos", [10, 30], .every(DateComponents(minute: 30)))
+    ])
+    func hourInterval(_ example: (text: String, time: [Int], recurrence: Recurrence)) throws {
+        let found = try #require(interpret(example.text))
+        #expect(ymd(found.start.date) == [2026, 9, 21])
+        #expect(hm(found.start.date) == example.time)
+        #expect(found.start.hasTime)
         #expect(found.recurrence == example.recurrence)
     }
 
