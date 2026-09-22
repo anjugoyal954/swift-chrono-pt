@@ -66,7 +66,7 @@ which also hosts the [documentation](https://swiftpackageindex.com/bertalhia/swi
 Swift Package Manager:
 
 ```swift
-.package(url: "https://github.com/bertalhia/swift-chrono-pt.git", from: "0.1.0")
+.package(url: "https://github.com/bertalhia/swift-chrono-pt.git", from: "0.2.0")
 ```
 
 ```swift
