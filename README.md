@@ -42,10 +42,11 @@ Some choices the grammar makes on purpose:
   and "quinta série" (fifth grade) are not dates. Monday to Friday count only
   with a hint: "na segunda", "segunda-feira", "sexta que vem", or a time right
   after ("quinta às 14h").
-- A duration is not a time. "estudar por 2 horas" (study for 2 hours)
-  does not set 14:00.
-- Spoken "às 7" is 19:00, the way people say it; written "7h" is 7:00. "de
-  manhã, às 7" is 7:00.
+- A duration is not a time. "estudar por 2 horas" (study for 2 hours) and
+  "trabalhar 8h por dia" (work 8 hours a day) set no time.
+- Spoken "às 7" is 19:00, the way people say it; written "7h" is 7:00. A part
+  of the day settles it: "de manhã, às 7" and "amanhã de manhã, reunião às 7"
+  are 7:00.
 - Midnight of a day is the start of the next day.
 
 Past dates ("ontem", "sexta passada") are not parsed yet.
