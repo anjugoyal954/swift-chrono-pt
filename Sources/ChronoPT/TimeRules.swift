@@ -1,23 +1,23 @@
 import Foundation
 
-/// As regras de hora: relógio ("às 9", "14h", "10:30", "às sete da noite",
-/// "meio-dia e meia"), parte do dia e momento ("de manhã", "no almoço",
-/// "depois da janta", "antes de dormir") e tempo a partir de agora ("daqui 2
-/// horas").
+/// Time rules: clock times ("às 9", "14h", "10:30", "às sete da noite",
+/// "meio-dia e meia"), parts of the day and moments ("de manhã", "no almoço",
+/// "depois da janta", "antes de dormir"), and time from now ("daqui 2 horas").
 ///
-/// Refeição só é hora com preposição de quando: "no almoço" é às 12h, "para o
-/// almoço" é para que serve a compra, e não marca hora nenhuma.
+/// A meal is a time only with a preposition of time: "no almoço" (at lunch)
+/// is 12:00, while "para o almoço" (for lunch) says what a purchase is for and
+/// sets no time.
 enum TimeRules {
     enum Value: Sendable {
-        /// `ambiguous` quando a fala não diz se é de manhã ou de noite: "às 7".
+        /// `ambiguous` when the words don't say morning or evening: "às 7".
         case clock(hour: Int, minute: Int, ambiguous: Bool, nextDay: Bool)
-        /// Parte do dia ou momento. `needsDay` quando sozinho não é hora:
-        /// "chegar cedo".
+        /// Part of the day or moment. `needsDay` when it is not a time on its
+        /// own: "chegar cedo".
         case period(hour: Int, needsDay: Bool)
         case fromNow(minutes: Int)
     }
 
-    /// A hora já decidida.
+    /// The time, already decided.
     enum Resolved: Sendable {
         case at(Clock)
         case fromNow(minutes: Int)
@@ -26,7 +26,7 @@ enum TimeRules {
     struct Clock: Sendable {
         let hour: Int
         let minute: Int
-        /// Meia-noite de um dia é o começo do dia seguinte.
+        /// Midnight of a day is the start of the next day.
         let nextDay: Bool
 
         func on(_ day: Date, calendar: Calendar) -> Date? {
@@ -35,22 +35,22 @@ enum TimeRules {
         }
     }
 
-    /// Todos os pedaços de hora, sem sobreposição, na ordem do texto.
+    /// Every time piece, without overlap, in text order.
     private static func candidates(in source: TextSource) -> [Piece<Value>] {
         let found = clocks(in: source) + noonAndMidnight(in: source) + fromNow(in: source) + periods(in: source)
         return Piece.nonOverlapping(found, in: source)
     }
 
-    /// Uma hora citada, já decidida: pedaços colados ("de manhã, às 7",
-    /// "à noite, lá pelas 8") viram uma hora só.
+    /// A time mentioned in the text, already decided: adjacent pieces ("de
+    /// manhã, às 7", "à noite, lá pelas 8") become a single time.
     struct Expression: Sendable {
         let range: Range<String.Index>
         let value: Resolved
-        /// Sozinha não é hora: "chegar cedo".
+        /// Not a time on its own: "chegar cedo".
         let needsDay: Bool
     }
 
-    /// As horas citadas no texto, na ordem do texto.
+    /// The times mentioned in the text, in text order.
     static func expressions(in source: TextSource) -> [Expression] {
         var groups: [[Piece<Value>]] = []
         for piece in candidates(in: source) {
@@ -63,9 +63,9 @@ enum TimeRules {
         return groups.compactMap(resolve)
     }
 
-    /// Tempo a partir de agora vale mais que tudo; relógio vale mais que parte
-    /// do dia, e a parte do dia decide o relógio que não diz se é de manhã ou
-    /// de noite: "de manhã, às 7" é 7h.
+    /// Time from now beats everything; a clock time beats a part of the day,
+    /// and the part of the day settles a clock time that doesn't say morning
+    /// or evening: "de manhã, às 7" is 7:00.
     private static func resolve(_ group: [Piece<Value>]) -> Expression? {
         guard let first = group.first, let last = group.last else { return nil }
         let range = first.range.lowerBound..<last.range.upperBound
@@ -86,8 +86,8 @@ enum TimeRules {
         if let clock {
             var hour = clock.hour
             if clock.ambiguous {
-                // Sem parte do dia, segue o relógio falado: de uma às sete é de
-                // tarde ("às 7" é 19h), de oito às onze é de manhã.
+                // With no part of the day, follow how people speak: one to seven
+                // is afternoon or evening ("às 7" is 19:00), eight to eleven is morning.
                 let afternoon = period.map { $0.hour >= 12 } ?? (hour <= 7)
                 if afternoon { hour += 12 }
             }
@@ -99,18 +99,18 @@ enum TimeRules {
         return nil
     }
 
-    // MARK: - Relógio
+    // MARK: - Clock
 
     private static func clocks(in source: TextSource) -> [Piece<Value>] {
         source.normalized.matches(of: clock).compactMap { match in
             let (_, prefix, hourText, separator, minuteText, unit, minuteWords, meridiem) = match.output
             let spoken = Int(hourText) == nil
-            // Número solto não é hora: precisa de "às", de "h", de ":" ou de
-            // "da tarde". Hora por extenso precisa de "às" ou "da tarde":
-            // "uma" também é artigo.
+            // A bare number is not a time: it needs "às", "h", ":" or "da tarde".
+            // A spelled-out hour needs "às" or "da tarde", because "uma" is also
+            // an article.
             let marked = prefix != nil || meridiem != nil || (!spoken && (separator != nil || unit != nil))
             guard marked, let base = SpokenNumber.value(hourText), (0...23).contains(base) else { return nil }
-            // "Por 2 horas", "há 1h30": duração, não hora.
+            // "Por 2 horas", "há 1h30": a duration, not a time.
             if prefix == nil, meridiem == nil, let before = source.word(before: match.range.lowerBound),
                durationWords.contains(before) {
                 return nil
@@ -135,7 +135,7 @@ enum TimeRules {
             case "tarde"?:
                 hour = base < 12 ? base + 12 : base
             case "noite"?:
-                // "Meia-noite" também se fala "12 da noite".
+                // Midnight is also said "12 da noite".
                 if base == 12 {
                     hour = 0
                     nextDay = true
@@ -143,8 +143,8 @@ enum TimeRules {
                     hour = base + 12
                 }
             default:
-                // Escrito "7h" ou "07:00" é o relógio de 24 horas; falado,
-                // "às 7" não diz se é de manhã ou de noite.
+                // Written "7h" or "07:00" is the 24-hour clock; spoken, "às 7"
+                // doesn't say morning or evening.
                 let written = separator != nil || unit?.first == "h" || hourText.hasPrefix("0")
                 ambiguous = (1...11).contains(base) && !written
             }
@@ -155,7 +155,7 @@ enum TimeRules {
     private static func noonAndMidnight(in source: TextSource) -> [Piece<Value>] {
         source.normalized.matches(of: noonOrMidnight).compactMap { match in
             let (_, prefix, word, minuteWords) = match.output
-            // "Meio dia" separado sem "ao" pode ser metade do dia: "meio dia de folga".
+            // "Meio dia" as two words without "ao" may mean half a day: "meio dia de folga".
             if word == "meio dia", prefix == nil { return nil }
             let minute = minuteWords.map { $0 == "meia" ? 30 : SpokenNumber.value($0) ?? 0 } ?? 0
             let midnight = word.hasPrefix("meia")
@@ -181,8 +181,8 @@ enum TimeRules {
 
     private static let durationWords: Set<String> = ["por", "durante", "ha", "faz", "cada", "daqui", "em", "apos", "umas", "uns"]
 
-    // Calculadas, não guardadas: `Regex` não é `Sendable`. O texto já chega
-    // sem acento e sem pontuação.
+    // Computed, not stored: `Regex` is not `Sendable`. The text arrives
+    // without accents or punctuation.
 
     // "às 9", "14h", "9h30", "10:30", "às 7 e meia", "às sete da noite", "3 da tarde"
     private static var clock: Regex<(Substring, Substring?, Substring, Substring?, Substring?, Substring?, Substring?, Substring?)> {
@@ -202,7 +202,7 @@ enum TimeRules {
             .wordBoundaryKind(.simple)
     }
 
-    // MARK: - Parte do dia e momento
+    // MARK: - Parts of the day and moments
 
     private struct Period {
         let phrases: [String]
@@ -210,8 +210,8 @@ enum TimeRules {
         var needsDay = false
     }
 
-    /// Sem acento, em minúsculas. A hora é a que a pessoa esperaria ver no
-    /// aviso: almoço ao meio-dia, janta às 19h, "de madrugada" às 5h.
+    /// Lowercase, without accents. The hour is the one a person would expect
+    /// on the reminder: lunch at noon, dinner at 19:00, "de madrugada" at 5:00.
     private static let table: [Period] = [
         Period(phrases: ["depois do almoco", "apos o almoco"], hour: 14),
         Period(phrases: ["antes do almoco"], hour: 11),

@@ -1,51 +1,56 @@
 # swift-chrono-pt
 
-Datas e horas em linguagem natural, em português do Brasil, para Swift.
+Natural-language date and time parsing for Brazilian Portuguese, in Swift.
 
 ```swift
 import ChronoPT
 
 ChronoPT.interpret("comprar pão amanhã no almoço")
-// amanhã, 12:00 — hasTime: true, text: "amanhã"
+// tomorrow, 12:00 — hasTime: true, text: "amanhã"
 
 ChronoPT.parse("dentista sexta às 14h, reunião dia 30 e ligar pro banco amanhã")
 // [sexta às 14h] [dia 30] [amanhã]
 ```
 
-Não usa rede, não usa modelo, não depende do `NSDataDetector`. É uma gramática
-pequena, no formato do [chrono](https://github.com/wanasit/chrono): regras que
-acham pedaços de dia e de hora, e depois juntam os dois. O mesmo texto, com a
-mesma data de referência, dá sempre a mesma resposta, em qualquer versão do
-sistema.
+It doesn't use the network, a language model or `NSDataDetector`. It is a
+small grammar in the style of [chrono](https://github.com/wanasit/chrono):
+rules find pieces of text that name a day or a time, then join a day and a time
+that sit next to each other. The same text with the same reference date always
+gives the same result, on every OS version.
 
-## O que entende
+## What it understands
 
-| Tipo | Exemplos |
+| Kind | Examples |
 |---|---|
-| Dia relativo | hoje, amanhã, depois de amanhã, daqui 2 dias, em três semanas, daqui um mês |
-| Dia da semana | sexta que vem, próxima sexta, nesta quinta, na terça-feira, sábado, quarta da semana que vem |
-| Data | 25/09, 25/09/2026, 2026-10-15, 15 de outubro, 1º de maio, primeiro de janeiro, dia 30, dia primeiro |
-| Período | semana que vem, fim de semana, mês que vem, fim do mês |
-| Relógio | às 9, 14h, 9h30, 10:30, às 7 e meia, às sete da noite, 3 da tarde, meio-dia e meia, à meia-noite |
-| Parte do dia | de manhã, à tarde, à noite, de madrugada, cedo, à tardinha, tarde da noite, no fim da tarde |
-| Momento | no almoço, na janta, depois do almoço, antes de dormir, ao acordar, no café da manhã, depois do trabalho |
-| A partir de agora | daqui 2 horas, em meia hora, daqui a 20 minutos |
+| Relative day | hoje, amanhã, depois de amanhã, daqui 2 dias, em três semanas, daqui um mês |
+| Weekday | sexta que vem, próxima sexta, nesta quinta, na terça-feira, sábado, quarta da semana que vem |
+| Date | 25/09, 25/09/2026, 2026-10-15, 15 de outubro, 1º de maio, primeiro de janeiro, dia 30, dia primeiro |
+| Period | semana que vem, fim de semana, mês que vem, fim do mês |
+| Clock time | às 9, 14h, 9h30, 10:30, às 7 e meia, às sete da noite, 3 da tarde, meio-dia e meia, à meia-noite |
+| Part of the day | de manhã, à tarde, à noite, de madrugada, cedo, à tardinha, tarde da noite, no fim da tarde |
+| Moment | no almoço, na janta, depois do almoço, antes de dormir, ao acordar, no café da manhã, depois do trabalho |
+| From now | daqui 2 horas, em meia hora, daqui a 20 minutos |
 
-Sem acento também: "amanha as 9", "no almoco".
+Accents are optional: "amanha as 9" and "no almoco" work too.
 
-Alguns cuidados que a gramática já toma:
+Some choices the grammar makes on purpose:
 
-- **"para a janta" não é hora.** Só "na janta", "no almoço", com preposição de
-  quando. "comprar para a janta amanhã" é amanhã, sem hora.
-- **Ordinal não vira dia.** "segunda via do boleto" e "quinta série" não são
-  datas. Segunda a sexta só contam com pista: "na segunda", "segunda-feira",
-  "sexta que vem" ou uma hora logo depois ("quinta às 14h").
-- **Duração não é hora.** "estudar por 2 horas" não marca 14h.
-- **"às 7" falado é 19h**, como no relógio de quem fala; "7h" escrito é 7h. "de
-  manhã, às 7" é 7h.
-- **Meia-noite** de um dia é o começo do dia seguinte.
+- "para a janta" is not a time. Only "na janta" or "no almoço", with a
+  preposition of time, set one. "comprar para a janta amanhã" (buy for
+  tomorrow's dinner) is tomorrow, with no time.
+- Ordinals are not weekdays. "segunda via do boleto" (a duplicate bill)
+  and "quinta série" (fifth grade) are not dates. Monday to Friday count only
+  with a hint: "na segunda", "segunda-feira", "sexta que vem", or a time right
+  after ("quinta às 14h").
+- A duration is not a time. "estudar por 2 horas" (study for 2 hours)
+  does not set 14:00.
+- Spoken "às 7" is 19:00, the way people say it; written "7h" is 7:00. "de
+  manhã, às 7" is 7:00.
+- Midnight of a day is the start of the next day.
 
-## Instalação
+Past dates ("ontem", "sexta passada") are not parsed yet.
+
+## Installation
 
 Swift Package Manager:
 
@@ -57,41 +62,43 @@ Swift Package Manager:
 .product(name: "ChronoPT", package: "swift-chrono-pt")
 ```
 
-iOS 16, macOS 13, watchOS 9, tvOS 16, visionOS 1.
+iOS 16, macOS 13, watchOS 9, tvOS 16, visionOS 1. Swift 6.
 
 ## API
 
 ```swift
-// Todas as expressões, na ordem do texto.
+// Every expression in the text, in order.
 ChronoPT.parse(_ text: String, reference: Date = .now, calendar: Calendar = .current) -> [ParsedResult]
 
-// A data do texto inteiro: o primeiro dia, na hora colada nele ou na primeira hora citada.
+// The date of the whole text: the first day, at the time next to it
+// or at the first time mentioned anywhere.
 ChronoPT.interpret(_ text: String, reference: Date = .now, calendar: Calendar = .current) -> ParsedResult?
 
 struct ParsedResult {
-    let range: Range<String.Index>  // no texto recebido
+    let range: Range<String.Index>  // in the input text
     let text: String
-    let date: Date                  // sem hora no texto: meio-dia
-    let end: Date?                  // período: "semana que vem"
+    let date: Date                  // noon when the text has no time
+    let end: Date?                  // periods: "semana que vem"
     let hasTime: Bool
 }
 ```
 
-## Testes
+## Tests
 
 ```bash
 swift test
 ```
 
-Todo teste roda numa data fixa (segunda, 21/09/2026, 10h, São Paulo).
+Every test runs against a fixed reference date: Monday, 21 September 2026,
+10:00, São Paulo.
 
-## English
+## Em português
 
-Natural-language date and time parser for Brazilian Portuguese, in Swift.
-Deterministic, offline, no `NSDataDetector`. Understands relative days,
-weekdays, dates, periods, clock times, parts of the day and meals ("amanhã no
+Parser de data e hora em linguagem natural para português do Brasil, em
+Swift. Determinístico, sem rede e sem `NSDataDetector`. Entende dia relativo,
+dia da semana, data, período, horário, parte do dia e refeição ("amanhã no
 almoço", "sexta à noite", "depois da janta", "às sete e meia").
 
-## Licença
+## License
 
-MIT. Veja [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

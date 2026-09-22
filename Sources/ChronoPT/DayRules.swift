@@ -1,21 +1,21 @@
 import Foundation
 
-/// As regras de dia: "hoje", "amanhã", "sexta que vem", "25/09", "15 de
-/// outubro", "dia 30", "daqui 2 dias", "semana que vem", "fim de semana".
+/// Day rules: "hoje", "amanhã", "sexta que vem", "25/09", "15 de outubro",
+/// "dia 30", "daqui 2 dias", "semana que vem", "fim de semana".
 ///
-/// Dia que já passou ("ontem") fica de fora de propósito: a data vira aviso,
-/// e aviso no passado não serve para nada.
+/// Past days ("ontem") are left out on purpose: the date becomes a reminder,
+/// and a reminder in the past is useless.
 ///
-/// Dia da semana que também é ordinal ("segunda via", "quinta série") só conta
-/// com uma pista de que é dia: "na segunda", "segunda-feira", "sexta que vem",
-/// ou uma hora logo depois ("sexta às 10", "quarta à noite"). Sábado e domingo
-/// não têm outro sentido e contam sozinhos.
+/// A weekday name that is also an ordinal ("segunda via", "quinta série") only
+/// counts with a hint that it is a day: "na segunda", "segunda-feira", "sexta
+/// que vem", or a time right after it ("sexta às 10", "quarta à noite").
+/// Saturday and Sunday have no other meaning and count on their own.
 enum DayRules {
     enum Value: Sendable, Equatable {
         case days(Int)
         case weeks(Int)
         case months(Int)
-        /// Dia da semana no formato do `Calendar`: 1 é domingo, 7 é sábado.
+        /// Weekday as `Calendar` numbers it: 1 is Sunday, 7 is Saturday.
         case weekday(Int, nextWeek: Bool)
         case date(day: Int, month: Int, year: Int?)
         case dayOfMonth(Int)
@@ -27,11 +27,11 @@ enum DayRules {
 
     private struct Candidate {
         let piece: Piece<Value>
-        /// Precisa de uma hora logo depois para contar ("quinta às 10").
+        /// Counts only with a time right after it ("quinta às 10").
         let needsTime: Bool
     }
 
-    /// Os dias citados no texto, sem sobreposição, na ordem do texto.
+    /// The days mentioned in the text, without overlap, in text order.
     static func expressions(in source: TextSource, times: [TimeRules.Expression]) -> [Piece<Value>] {
         let candidates = candidates(in: source).filter { candidate in
             !candidate.needsTime || times.contains { time in
@@ -42,7 +42,7 @@ enum DayRules {
         return Piece.nonOverlapping(candidates.map(\.piece), in: source)
     }
 
-    // MARK: - Regras
+    // MARK: - Rules
 
     private static func candidates(in source: TextSource) -> [Candidate] {
         let text = source.normalized
@@ -109,9 +109,9 @@ enum DayRules {
         return found
     }
 
-    // Calculadas, não guardadas: `Regex` não é `Sendable`, e constante estática
-    // não isolada precisa ser. O literal é conferido na compilação. Fronteira
-    // de palavra simples: o texto já chega sem acento e sem pontuação.
+    // Computed, not stored: `Regex` is not `Sendable`, and a nonisolated static
+    // constant has to be. The literal is still checked at compile time. Simple
+    // word boundaries: the text arrives without accents or punctuation.
 
     private static var relativeDay: Regex<(Substring, Substring)> {
         #/\b(depois de amanha|amanha|hoje|hj)\b/#.wordBoundaryKind(.simple)
@@ -145,7 +145,7 @@ enum DayRules {
             .wordBoundaryKind(.simple)
     }
 
-    // "dia 30", "até dia 5", "dia primeiro"; "dia 25/09" fica para a data com barra.
+    // "dia 30", "até dia 5", "dia primeiro"; "dia 25/09" is left to `numericDate`.
     private static var dayOfMonth: Regex<(Substring, Substring)> {
         #/\bdia (\d{1,2}|primeiro)\b(?!/)/#.wordBoundaryKind(.simple)
     }
@@ -169,15 +169,15 @@ enum DayRules {
         text == "primeiro" ? 1 : Int(text)
     }
 
-    /// Ano de dois dígitos é deste século: "27" é 2027.
+    /// A two-digit year is in this century: "27" is 2027.
     private static func year(_ text: String) -> Int? {
         guard let value = Int(text) else { return nil }
         return text.count == 2 ? 2000 + value : value
     }
 
-    // MARK: - Do dia citado à data
+    // MARK: - From the mentioned day to a date
 
-    /// O começo do dia citado e, quando é período, o começo do último dia.
+    /// The start of the mentioned day and, for a period, the start of its last day.
     static func resolve(_ value: Value, reference: Date, calendar: Calendar) -> (start: Date, end: Date?)? {
         let today = calendar.startOfDay(for: reference)
 
@@ -193,12 +193,12 @@ enum DayRules {
 
         case .weekday(let weekday, let nextWeek):
             if nextWeek {
-                // Na semana que vem, de segunda a domingo.
+                // Next week runs Monday to Sunday.
                 guard let monday = nextMonday(after: today, calendar: calendar) else { return nil }
                 return calendar.date(byAdding: .day, value: (weekday + 5) % 7, to: monday).map { ($0, nil) }
             }
-            // A próxima vez que o dia chega, sem contar hoje: "sexta", dito
-            // numa sexta, é a da semana que vem.
+            // The next time that weekday comes, not counting today: "sexta"
+            // said on a Friday is next week's.
             return calendar.nextDate(after: today, matching: DateComponents(weekday: weekday), matchingPolicy: .nextTime)
                 .map { ($0, nil) }
 
@@ -206,13 +206,13 @@ enum DayRules {
             guard (1...12).contains(month), (1...daysInMonth[month - 1]).contains(day) else { return nil }
             if let year {
                 let components = DateComponents(year: year, month: month, day: day)
-                // O calendário completa data que não existe (29/02 em ano comum
-                // vira 1º/03); aí não é data.
+                // The calendar rolls a date that doesn't exist over (29/02 in a
+                // common year becomes 01/03); then it is not a date.
                 guard let date = calendar.date(from: components),
                       calendar.component(.day, from: date) == day else { return nil }
                 return (date, nil)
             }
-            // Sem ano, a próxima vez que a data chega, contando hoje.
+            // Without a year, the next time that date comes, counting today.
             return calendar.nextDate(
                 after: today.addingTimeInterval(-1),
                 matching: DateComponents(month: month, day: day),
@@ -234,7 +234,7 @@ enum DayRules {
 
         case .weekend:
             let weekday = calendar.component(.weekday, from: today)
-            // No sábado é este fim de semana; no domingo, só o que sobrou dele.
+            // On Saturday it is this weekend; on Sunday, what is left of it.
             if weekday == 1 { return (today, nil) }
             let saturday = weekday == 7
                 ? today

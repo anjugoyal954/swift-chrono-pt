@@ -1,11 +1,11 @@
 import Foundation
 
-/// O texto como as regras leem: minúsculo, sem acento, e pontuação virando
-/// espaço, com um caractere para cada caractere do original. Assim a posição
-/// achada aqui é a mesma no texto de quem escreveu, e "Almoço," casa com
-/// "almoco".
+/// The text as the rules read it: lowercase, without accents, punctuation
+/// turned into spaces, and one character for each character of the original.
+/// A position found here is the same position in the writer's text, and
+/// "Almoço," matches "almoco".
 ///
-/// Ficam a barra, os dois pontos e o hífen: "25/09", "10:30", "meio-dia".
+/// Slash, colon and hyphen stay: "25/09", "10:30", "meio-dia".
 struct TextSource {
     let original: String
     let normalized: String
@@ -22,7 +22,7 @@ struct TextSource {
         })
     }
 
-    /// A mesma posição no texto original.
+    /// The same position in the original text.
     func originalRange(_ range: Range<String.Index>) -> Range<String.Index> {
         let start = normalized.distance(from: normalized.startIndex, to: range.lowerBound)
         let length = length(of: range)
@@ -34,8 +34,8 @@ struct TextSource {
         normalized.distance(from: range.lowerBound, to: range.upperBound)
     }
 
-    /// Onde a frase aparece como palavras inteiras: "a noite" não casa dentro
-    /// de "da noite".
+    /// Where the phrase appears as whole words: "a noite" does not match
+    /// inside "da noite".
     func wordRanges(of phrase: String) -> [Range<String.Index>] {
         normalized.ranges(of: phrase).filter { range in
             let before = range.lowerBound > normalized.startIndex ? normalized[normalized.index(before: range.lowerBound)] : nil
@@ -44,13 +44,13 @@ struct TextSource {
         }
     }
 
-    /// A palavra logo antes da posição, para regra que depende do contexto:
-    /// "por 2 horas" é duração, não hora.
+    /// The word right before the position, for rules that depend on context:
+    /// "por 2 horas" is a duration, not a time.
     func word(before index: String.Index) -> String? {
         normalized[..<index].split(whereSeparator: { !Self.isWordCharacter($0) }).last.map(String.init)
     }
 
-    /// Entre os dois trechos só há espaço e preposição: "amanhã às 9",
+    /// Only spaces and prepositions between the two ranges: "amanhã às 9",
     /// "sexta à noite", "hoje, no almoço".
     func onlyConnectors(between first: Range<String.Index>, and second: Range<String.Index>) -> Bool {
         let (left, right) = first.lowerBound <= second.lowerBound ? (first, second) : (second, first)
@@ -70,14 +70,14 @@ struct TextSource {
     }
 }
 
-/// Um trecho achado por uma regra, com a posição no texto normalizado.
+/// A piece of text found by a rule, with its position in the normalized text.
 struct Piece<Value: Sendable>: Sendable {
     let range: Range<String.Index>
     let value: Value
 
-    /// Tira os trechos sobrepostos: fica o que começa antes e, empatado, o mais
-    /// longo. "Depois de amanhã" ganha de "amanhã"; "de manhã cedo", de "de
-    /// manhã". O resultado sai na ordem do texto.
+    /// Drops overlapping pieces: the one that starts first stays and, on a
+    /// tie, the longest. "Depois de amanhã" beats "amanhã"; "de manhã cedo"
+    /// beats "de manhã". The result is in text order.
     static func nonOverlapping(_ pieces: [Self], in source: TextSource) -> [Self] {
         let sorted = pieces.sorted { lhs, rhs in
             if lhs.range.lowerBound != rhs.range.lowerBound { return lhs.range.lowerBound < rhs.range.lowerBound }
@@ -91,7 +91,7 @@ struct Piece<Value: Sendable>: Sendable {
     }
 }
 
-/// Número por extenso, dos pequenos que se falam em data e hora.
+/// Spelled-out numbers, the small ones people use for dates and times.
 enum SpokenNumber {
     static func value(_ word: some StringProtocol) -> Int? {
         if let number = Int(word) { return number }

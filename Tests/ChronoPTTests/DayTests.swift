@@ -1,9 +1,9 @@
 import Testing
 @testable import ChronoPT
 
-@Suite("Dia")
+@Suite("Days")
 struct DayTests {
-    @Test("Dia citado, em todos os formatos", arguments: [
+    @Test("A day in every supported format", arguments: [
         ("dentista hoje", [2026, 9, 21]),
         ("aniversário da Ana amanhã", [2026, 9, 22]),
         ("depois de amanhã", [2026, 9, 23]),
@@ -35,62 +35,62 @@ struct DayTests {
         ("daqui um mês", [2026, 10, 21]),
         ("fim do mês", [2026, 9, 30])
     ])
-    func dia(_ example: (text: String, day: [Int])) throws {
+    func day(_ example: (text: String, day: [Int])) throws {
         let found = try #require(interpret(example.text))
         #expect(ymd(found.date) == example.day)
         #expect(found.hasTime == false)
         #expect(hm(found.date) == [12, 0])
     }
 
-    @Test("Semana que vem é de segunda a domingo da semana seguinte")
-    func semanaQueVem() throws {
+    @Test("\"Semana que vem\" is Monday to Sunday of the following week")
+    func nextWeek() throws {
         let found = try #require(interpret("revisar contrato semana que vem"))
         #expect(ymd(found.date) == [2026, 9, 28])
         #expect(ymd(found.end) == [2026, 10, 4])
     }
 
-    @Test("Fim de semana é o sábado e o domingo que vêm")
-    func fimDeSemana() throws {
+    @Test("\"Fim de semana\" is the coming Saturday and Sunday")
+    func weekend() throws {
         let found = try #require(interpret("arrumar a garagem no fim de semana"))
         #expect(ymd(found.date) == [2026, 9, 26])
         #expect(ymd(found.end) == [2026, 9, 27])
     }
 
-    @Test("Mês que vem é o mês inteiro")
-    func mesQueVem() throws {
+    @Test("\"Mês que vem\" is the whole next month")
+    func nextMonth() throws {
         let found = try #require(interpret("renovar o seguro mês que vem"))
         #expect(ymd(found.date) == [2026, 10, 1])
         #expect(ymd(found.end) == [2026, 10, 31])
     }
 
-    @Test("Ordinal não vira dia da semana", arguments: [
+    @Test("An ordinal is not a weekday", arguments: [
         "pedir a segunda via do boleto",
         "quinta série",
         "a terça parte"
     ])
-    func ordinalNaoEhData(_ text: String) {
+    func ordinalIsNotADay(_ text: String) {
         #expect(interpret(text) == nil)
     }
 
-    @Test("Dia da semana que também é ordinal conta quando vem com hora")
-    func ordinalComHora() throws {
+    @Test("A weekday that is also an ordinal counts when a time follows")
+    func ordinalWithTime() throws {
         let found = try #require(interpret("consulta quinta às 14h"))
         #expect(ymd(found.date) == [2026, 9, 24])
         #expect(found.hasTime)
     }
 
-    @Test("Data que não existe não vira data", arguments: ["31/02", "29/02/2027", "32 de maio"])
-    func dataInvalida(_ text: String) {
+    @Test("A date that does not exist is not a date", arguments: ["31/02", "29/02/2027", "32 de maio"])
+    func invalidDate(_ text: String) {
         #expect(interpret(text) == nil)
     }
 
-    @Test("Texto sem data não inventa data", arguments: [
+    @Test("Text without a date gives no date", arguments: [
         "comprar café",
         "ideia: gravar vídeo sobre isso",
         "pagar o boleto",
         "comprar 2 pacotes de arroz"
     ])
-    func semData(_ text: String) {
+    func noDate(_ text: String) {
         #expect(interpret(text) == nil)
         #expect(parse(text).isEmpty)
     }

@@ -1,8 +1,8 @@
 import Foundation
 @testable import ChronoPT
 
-/// Todos os testes rodam numa segunda-feira, 21/09/2026, às 10h, em São
-/// Paulo: a resposta não depende do dia em que o teste roda.
+/// Every test runs on Monday, 21 September 2026, at 10:00 in São Paulo, so
+/// the answer does not depend on the day the tests run.
 let saoPaulo: Calendar = {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(identifier: "America/Sao_Paulo")!
@@ -10,13 +10,13 @@ let saoPaulo: Calendar = {
     return calendar
 }()
 
-let segunda = saoPaulo.date(from: DateComponents(year: 2026, month: 9, day: 21, hour: 10))!
+let monday = saoPaulo.date(from: DateComponents(year: 2026, month: 9, day: 21, hour: 10))!
 
-func interpret(_ text: String, reference: Date = segunda) -> ParsedResult? {
+func interpret(_ text: String, reference: Date = monday) -> ParsedResult? {
     ChronoPT.interpret(text, reference: reference, calendar: saoPaulo)
 }
 
-func parse(_ text: String, reference: Date = segunda) -> [ParsedResult] {
+func parse(_ text: String, reference: Date = monday) -> [ParsedResult] {
     ChronoPT.parse(text, reference: reference, calendar: saoPaulo)
 }
 

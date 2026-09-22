@@ -1,25 +1,26 @@
 import Foundation
 
-/// Datas e horas em linguagem natural, em português do Brasil.
+/// Natural-language dates and times in Brazilian Portuguese.
 ///
 /// ```swift
-/// ChronoPT.interpret("comprar pão amanhã no almoço")   // amanhã, 12:00
-/// ChronoPT.parse("dentista sexta às 14h e reunião dia 30")  // duas datas
+/// ChronoPT.interpret("comprar pão amanhã no almoço")   // tomorrow, 12:00
+/// ChronoPT.parse("dentista sexta às 14h e reunião dia 30")  // two dates
 /// ```
 ///
-/// Gramática própria, no formato do chrono (github.com/wanasit/chrono): regras
-/// pequenas acham pedaços de dia ("amanhã", "sexta que vem", "dia 30") e de
-/// hora ("às 9", "no almoço", "de madrugada"), e depois dia e hora se juntam.
-/// Caso novo é uma regra nova em `DayRules` ou uma linha nova na tabela de
-/// `TimeRules`, sem mexer no resto.
+/// A small grammar in the style of chrono (github.com/wanasit/chrono): rules
+/// find day pieces ("amanhã", "sexta que vem", "dia 30") and time pieces
+/// ("às 9", "no almoço", "de madrugada"), then a day and a time are joined.
+/// A new case is a new rule in `DayRules` or a new row in the `TimeRules`
+/// table, without touching the rest.
 ///
-/// Tudo é calculado a partir de `reference` e `calendar`: o mesmo texto, com a
-/// mesma referência, dá sempre a mesma resposta, em qualquer versão do sistema.
+/// Everything is computed from `reference` and `calendar`: the same text with
+/// the same reference always gives the same answer, on any OS version.
 public enum ChronoPT {
-    /// Todas as expressões de data e hora do texto, na ordem em que aparecem.
+    /// Every date and time expression in the text, in the order they appear.
     ///
-    /// Dia e hora colados ("amanhã às 9", "sexta à noite") saem numa expressão
-    /// só. Hora sem dia cai hoje, ou amanhã se o horário já passou.
+    /// A day and a time next to each other ("amanhã às 9", "sexta à noite")
+    /// come out as one expression. A time with no day falls on today, or on
+    /// tomorrow if that time has already passed.
     public static func parse(
         _ text: String,
         reference: Date = .now,
@@ -46,11 +47,12 @@ public enum ChronoPT {
         return results.sorted { $0.range.lowerBound < $1.range.lowerBound }
     }
 
-    /// A data para a qual o texto inteiro aponta: o primeiro dia citado, na
-    /// hora colada nele ou, sem ela, na primeira hora citada no texto. Serve
-    /// para anotação e lembrete: "amanhã comprar pão no almoço" é amanhã às 12h.
+    /// The date the whole text points to: the first day mentioned, at the
+    /// time next to it or, if there is none, at the first time mentioned in
+    /// the text. Made for notes and reminders: "amanhã comprar pão no almoço"
+    /// is tomorrow at 12:00.
     ///
-    /// Quando dia e hora estão separados, `range` cobre só o dia.
+    /// When the day and the time are apart, `range` covers only the day.
     public static func interpret(
         _ text: String,
         reference: Date = .now,
@@ -66,23 +68,23 @@ public enum ChronoPT {
     }
 }
 
-/// Uma data achada no texto.
+/// A date found in the text.
 public struct ParsedResult: Sendable, Equatable {
-    /// Onde a expressão está no texto recebido.
+    /// Where the expression is in the input text.
     public let range: Range<String.Index>
-    /// A expressão como está no texto.
+    /// The expression as written in the text.
     public let text: String
-    /// O começo. Sem hora no texto, é o dia ao meio-dia: longe da virada do
-    /// dia no horário de verão.
+    /// The start. With no time in the text, it is noon of that day, far from
+    /// the midnight shifts of daylight saving time.
     public let date: Date
-    /// O fim, quando a expressão é um período ("semana que vem", "fim de
+    /// The end, when the expression is a period ("semana que vem", "fim de
     /// semana").
     public let end: Date?
-    /// `false` quando o texto deu só o dia.
+    /// `false` when the text gave only the day.
     public let hasTime: Bool
 }
 
-/// O que `parse` e `interpret` compartilham: o texto lido uma vez só.
+/// What `parse` and `interpret` share: the text, read only once.
 struct Context {
     let source: TextSource
     let days: [Piece<DayRules.Value>]
@@ -102,7 +104,7 @@ struct Context {
         DayRules.resolve(day.value, reference: reference, calendar: calendar)
     }
 
-    /// Junta um dia e uma hora, qualquer um dos dois podendo faltar.
+    /// Joins a day and a time; either one may be missing.
     func combine(_ day: Piece<DayRules.Value>?, _ time: TimeRules.Expression?) -> ParsedResult? {
         if let day {
             guard let days = resolve(day) else { return nil }
@@ -121,7 +123,7 @@ struct Context {
                 end = days.end.flatMap { clock.on($0, calendar: calendar) }
             }
             guard let date else { return nil }
-            // Dia e hora colados saem juntos do texto; separados, fica só o dia.
+            // A day and a time next to each other come out together; apart, only the day.
             let range = source.onlyConnectors(between: day.range, and: time.range)
                 ? min(day.range.lowerBound, time.range.lowerBound)..<max(day.range.upperBound, time.range.upperBound)
                 : day.range
@@ -134,7 +136,7 @@ struct Context {
         case .fromNow(let minutes):
             date = reference.addingTimeInterval(Double(minutes) * 60)
         case .at(let clock):
-            // Só a hora: hoje nesse horário, ou amanhã se já passou.
+            // Time only: today at that time, or tomorrow if it has passed.
             guard let today = clock.on(reference, calendar: calendar) else { return nil }
             date = today > reference ? today : calendar.date(byAdding: .day, value: 1, to: today) ?? today
         }
