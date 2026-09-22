@@ -167,61 +167,82 @@ enum DayRules {
     }
 
     // Computed, not stored: `Regex` is not `Sendable`, and a nonisolated static
-    // constant has to be. The literal is still checked at compile time. Simple
-    // word boundaries: the text arrives without accents or punctuation.
+    // constant has to be. `RegexCache` keeps each one built per thread. The
+    // literal is still checked at compile time. Simple word boundaries: the
+    // text arrives without accents or punctuation.
 
     private static var relativeDay: Regex<(Substring, Substring)> {
-        #/\b(depois de amanha|amanha|hoje|hj)\b/#.wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(depois de amanha|amanha|hoje|hj)\b/#.wordBoundaryKind(.simple)
+        }
     }
 
     // "daqui 2 dias", "daqui a três semanas", "em 3 dias", "dentro de um mês"
     private static var inAmount: Regex<(Substring, Substring, Substring, Substring)> {
-        #/\b(daqui a|daqui|em|dentro de) (\d{1,3}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta) (dias?|semanas?|mes|meses)\b/#
-            .wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(daqui a|daqui|em|dentro de) (\d{1,3}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta) (dias?|semanas?|mes|meses)\b/#
+                .wordBoundaryKind(.simple)
+        }
     }
 
     // "na sexta", "segunda-feira", "sexta que vem", "quarta da semana que vem"
     private static var weekday: Regex<(Substring, Substring?, Substring, Substring?, Substring?)> {
-        #/\b(?:(na|no|nesta|neste|esta|este|essa|esse|nessa|nesse|proxima|proximo|ate|toda|todo|pra|para|pro) )?(segunda|terca|quarta|quinta|sexta|sabado|domingo)(-feira| feira)?( que vem| da semana que vem| da proxima semana)?\b/#
-            .wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(?:(na|no|nesta|neste|esta|este|essa|esse|nessa|nesse|proxima|proximo|ate|toda|todo|pra|para|pro) )?(segunda|terca|quarta|quinta|sexta|sabado|domingo)(-feira| feira)?( que vem| da semana que vem| da proxima semana)?\b/#
+                .wordBoundaryKind(.simple)
+        }
     }
 
     // "25/09", "dia 25/09/2026", "5/1/27"
     private static var numericDate: Regex<(Substring, Substring, Substring, Substring?)> {
-        #/\b(?:dia )?(\d{1,2})/(\d{1,2})(?:/(\d{4}|\d{2}))?\b/#.wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(?:dia )?(\d{1,2})/(\d{1,2})(?:/(\d{4}|\d{2}))?\b/#.wordBoundaryKind(.simple)
+        }
     }
 
     // "2026-10-15"
     private static var isoDate: Regex<(Substring, Substring, Substring, Substring)> {
-        #/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/#.wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/#.wordBoundaryKind(.simple)
+        }
     }
 
     // "15 de outubro", "dia 1º de maio", "vinte e três de outubro", "3 out 2027"
     private static var monthName: Regex<(Substring, Substring, Substring?, Substring, Substring?)> {
-        #/\b(?:dia )?(\d{1,2}|primeiro|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)(?:o|º)? (de )?(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b(?: (?:de )?(\d{4})\b)?/#
-            .wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(?:dia )?(\d{1,2}|primeiro|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)(?:o|º)? (de )?(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b(?: (?:de )?(\d{4})\b)?/#
+                .wordBoundaryKind(.simple)
+        }
     }
 
     // "de 10 a 15 de outubro", "entre 3 e 5 de maio": the first day takes the month of the second
     private static var dayRangeInMonth: Regex<(Substring, Substring, Substring, Substring, Substring, Substring, Substring?)> {
-        #/\b(de|entre) (\d{1,2}|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)(?:o|º)? (a|ao|ate|e) (\d{1,2}|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)(?:o|º)? de (janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b(?: (?:de )?(\d{4})\b)?/#
-            .wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(de|entre) (\d{1,2}|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)(?:o|º)? (a|ao|ate|e) (\d{1,2}|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)(?:o|º)? de (janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b(?: (?:de )?(\d{4})\b)?/#
+                .wordBoundaryKind(.simple)
+        }
     }
 
     // "dia 30", "até dia 5", "dia primeiro", "dia quinze"; "dia 25/09" is left to `numericDate`.
     private static var dayOfMonth: Regex<(Substring, Substring)> {
-        #/\bdia (\d{1,2}|primeiro|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)\b(?!/)/#.wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\bdia (\d{1,2}|primeiro|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)\b(?!/)/#.wordBoundaryKind(.simple)
+        }
     }
 
     private static var namedPeriod: Regex<(Substring, Substring)> {
-        #/\b(esta semana que vem|essa semana que vem|esta semana|essa semana|nesta semana|nessa semana|semana que vem|proxima semana|fim de semana|final de semana|fds|este mes|esse mes|neste mes|nesse mes|(?:comeco|inicio) do (?:mes que vem|proximo mes)|mes que vem|proximo mes|fim do mes|final do mes|ano que vem|proximo ano)\b/#
-            .wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(esta semana que vem|essa semana que vem|esta semana|essa semana|nesta semana|nessa semana|semana que vem|proxima semana|fim de semana|final de semana|fds|este mes|esse mes|neste mes|nesse mes|(?:comeco|inicio) do (?:mes que vem|proximo mes)|mes que vem|proximo mes|fim do mes|final do mes|ano que vem|proximo ano)\b/#
+                .wordBoundaryKind(.simple)
+        }
     }
 
     // "no natal", "véspera de natal", "dia de finados", "na sexta-feira santa"
     private static var holidayName: Regex<(Substring, Substring?, Substring)> {
-        #/\b(?:(no proximo|na proxima|no|na|ate o|ate a|ate|neste|nesta|nesse|nessa|este|esta|esse|essa|feriado de|feriado do|feriado da|dia de|dia do|dia da) )?(vespera de natal|natal|reveillon|virada do ano|ano novo|ano-novo|tiradentes|dia do trabalhador|dia do trabalho|independencia|dia das criancas|nossa senhora aparecida|finados|proclamacao da republica|consciencia negra|dia dos namorados|carnaval|quarta-feira de cinzas|quarta de cinzas|sexta-feira santa|sexta-feira da paixao|sexta santa|pascoa|corpus christi|dia das maes|dia dos pais)\b/#
-            .wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(?:(no proximo|na proxima|no|na|ate o|ate a|ate|neste|nesta|nesse|nessa|este|esta|esse|essa|feriado de|feriado do|feriado da|dia de|dia do|dia da) )?(vespera de natal|natal|reveillon|virada do ano|ano novo|ano-novo|tiradentes|dia do trabalhador|dia do trabalho|independencia|dia das criancas|nossa senhora aparecida|finados|proclamacao da republica|consciencia negra|dia dos namorados|carnaval|quarta-feira de cinzas|quarta de cinzas|sexta-feira santa|sexta-feira da paixao|sexta santa|pascoa|corpus christi|dia das maes|dia dos pais)\b/#
+                .wordBoundaryKind(.simple)
+        }
     }
 
     private struct HolidayName {

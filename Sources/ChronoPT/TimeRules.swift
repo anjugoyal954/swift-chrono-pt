@@ -304,38 +304,48 @@ enum TimeRules {
         ["diarias"], ["diarios"], ["semanais"], ["seguidas"], ["seguidos"]
     ]
 
-    // Computed, not stored: `Regex` is not `Sendable`. The text arrives
-    // without accents or punctuation.
+    // Computed, not stored: `Regex` is not `Sendable`. `RegexCache` keeps each
+    // one built per thread. The text arrives without accents or punctuation.
 
     // "às 9", "14h", "9h30", "10:30", "às 7 e meia", "às sete da noite", "3 da tarde",
     // "às vinte e duas horas", "às oito e trinta e cinco"
     private static var clock: Regex<(Substring, Substring?, Substring, Substring?, Substring?, Substring?, Substring?, Substring?)> {
-        #/\b(?:(as|ate as|pelas|la pelas|por volta das|a partir das|das) )?(\d{1,2}|vinte e uma|vinte e um|vinte e duas|vinte e dois|vinte e tres|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|duas|uma)(?:(:|h)(\d{2})\b|( ?(?:hrs|hr|hs|horas|hora|h))\b|\b)(?: e (meia|(?:vinte|trinta|quarenta|cinquenta) e (?:um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove)|vinte|trinta|quarenta|cinquenta|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|cinco|\d{1,2})\b)?(?: (?:da|de|pela) (manha|tarde|noite|madrugada)\b)?/#
-            .wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(?:(as|ate as|pelas|la pelas|por volta das|a partir das|das) )?(\d{1,2}|vinte e uma|vinte e um|vinte e duas|vinte e dois|vinte e tres|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|duas|uma)(?:(:|h)(\d{2})\b|( ?(?:hrs|hr|hs|horas|hora|h))\b|\b)(?: e (meia|(?:vinte|trinta|quarenta|cinquenta) e (?:um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove)|vinte|trinta|quarenta|cinquenta|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|cinco|\d{1,2})\b)?(?: (?:da|de|pela) (manha|tarde|noite|madrugada)\b)?/#
+                .wordBoundaryKind(.simple)
+        }
     }
 
     // "quinze para as oito", "vinte e cinco pras 9", "10 minutos para as 3 da tarde"
     private static var minutesTo: Regex<(Substring, Substring, Substring?, Substring, Substring?)> {
-        #/\b(?:(?:as|pelas|la pelas|por volta das|ate as) )?(vinte e cinco|cinco|dez|quinze|vinte|\d{1,2})( min| minutos)? (?:para as|para a|para o|pras|pra as|pra a|pro) (\d{1,2}|uma|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|meio-dia|meio dia|meia-noite|meia noite)\b(?: (?:da|de|pela) (manha|tarde|noite|madrugada)\b)?/#
-            .wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(?:(?:as|pelas|la pelas|por volta das|ate as) )?(vinte e cinco|cinco|dez|quinze|vinte|\d{1,2})( min| minutos)? (?:para as|para a|para o|pras|pra as|pra a|pro) (\d{1,2}|uma|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|meio-dia|meio dia|meia-noite|meia noite)\b(?: (?:da|de|pela) (manha|tarde|noite|madrugada)\b)?/#
+                .wordBoundaryKind(.simple)
+        }
     }
 
     // "de 9 a 11h", "entre 10 e 11h"
     private static var bareRangeStart: Regex<(Substring, Substring)> {
-        #/\b(?:de|entre) (\d{1,2}|vinte e uma|vinte e um|vinte e duas|vinte e dois|vinte e tres|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|duas|uma)\b(?= (?:a|as|ate|e) )/#
-            .wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(?:de|entre) (\d{1,2}|vinte e uma|vinte e um|vinte e duas|vinte e dois|vinte e tres|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|duas|uma)\b(?= (?:a|as|ate|e) )/#
+                .wordBoundaryKind(.simple)
+        }
     }
 
     // "ao meio-dia", "meio-dia e meia", "à meia-noite"
     private static var noonOrMidnight: Regex<(Substring, Substring?, Substring, Substring?)> {
-        #/\b(?:(ao|a|as|pelo|pela|por volta do|por volta da|la pelo|la pela|ate o|ate a) )?(meio-dia|meio dia|meia-noite|meia noite)(?: e (meia|quinze|vinte|trinta|quarenta|cinco|dez|\d{1,2})\b)?\b/#
-            .wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(?:(ao|a|as|pelo|pela|por volta do|por volta da|la pelo|la pela|ate o|ate a) )?(meio-dia|meio dia|meia-noite|meia noite)(?: e (meia|quinze|vinte|trinta|quarenta|cinco|dez|\d{1,2})\b)?\b/#
+                .wordBoundaryKind(.simple)
+        }
     }
 
     // "daqui 2 horas", "em meia hora", "daqui a 20 minutos"
     private static var inTime: Regex<(Substring, Substring, Substring)> {
-        #/\b(?:daqui a|daqui|em|dentro de) (\d{1,3}|uma|um|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta|quarenta|cinquenta|meia) (horas?|minutos?|min)\b/#
-            .wordBoundaryKind(.simple)
+        RegexCache.regex {
+            #/\b(?:daqui a|daqui|em|dentro de) (\d{1,3}|uma|um|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta|quarenta|cinquenta|meia) (horas?|minutos?|min)\b/#
+                .wordBoundaryKind(.simple)
+        }
     }
 
     // MARK: - Parts of the day and moments

@@ -24,7 +24,8 @@ zone, the result you got and the result you expected.
   punctuation while keeping one character for each character of the original,
   so every position a rule finds maps back to the text the user wrote.
 - Swift 6 with strict concurrency. `Regex` is not `Sendable`, so regexes
-  live in computed properties, not in static constants.
+  live in computed properties that go through `RegexCache`, not in static
+  constants.
 - Swift Testing, not XCTest.
 - English for code, comments, documentation, test names and commit
   messages. Input examples stay in Portuguese.
@@ -37,6 +38,7 @@ zone, the result you got and the result you expected.
 | `TextSource.swift` | Normalized text with a position map; `Piece` and overlap removal; spelled-out numbers |
 | `DayRules.swift` | Day rules and date arithmetic |
 | `TimeRules.swift` | Clock times, parts of the day, moments, "daqui a"; merges adjacent pieces into one time |
+| `RegexCache.swift` | Keeps compiled regexes per thread, since `Regex` is not `Sendable` |
 
 ## Running the tests
 

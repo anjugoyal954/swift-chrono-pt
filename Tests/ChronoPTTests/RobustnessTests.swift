@@ -28,6 +28,23 @@ struct RobustnessTests {
         }
     }
 
+    @Test("Parsing from many tasks at once gives the same results as one at a time")
+    func concurrentParsing() async {
+        let texts = Self.pieces.indices.map { index in
+            Self.pieces[index...].prefix(6).joined(separator: " ")
+        }
+        let serial = texts.map { parse($0).map(\.text) }
+        let concurrent = await withTaskGroup(of: (Int, [String]).self) { group in
+            for (index, text) in texts.enumerated() {
+                group.addTask { (index, parse(text).map(\.text)) }
+            }
+            var results = Array(repeating: [String](), count: texts.count)
+            for await (index, found) in group { results[index] = found }
+            return results
+        }
+        #expect(concurrent == serial)
+    }
+
     @Test("A lone combining mark after a line break keeps positions aligned")
     func combiningMarkAfterLineBreak() throws {
         let text = "\n\u{301}amanhã às 9"
