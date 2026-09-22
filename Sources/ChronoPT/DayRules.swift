@@ -34,6 +34,15 @@ enum DayRules {
         case holiday(Holiday)
         /// From one day to another: "de segunda a sexta", "do dia 10 ao dia 15".
         indirect case range(Value, Value)
+
+        /// A day of the month, with or without the month: "dia 25", "25/09",
+        /// "1º de outubro".
+        var isDate: Bool {
+            switch self {
+            case .date, .dayOfMonth: true
+            default: false
+            }
+        }
     }
 
     /// A holiday: on a fixed date, counted from Easter, or on the second Sunday
@@ -54,7 +63,7 @@ enum DayRules {
     /// The days mentioned in the text, without overlap, in text order.
     static func expressions(in source: TextSource, times: [TimeRules.Expression]) -> [Piece<Value>] {
         let found = candidates(in: source)
-        let candidates = (found + ranges(of: found, in: source)).filter { candidate in
+        let candidates = (found + ranges(of: found, in: source) + weekdaysWithDates(of: found, in: source)).filter { candidate in
             !candidate.needsTime || times.contains { time in
                 time.range.lowerBound >= candidate.piece.range.upperBound
                     && source.onlyConnectors(between: candidate.piece.range, and: time.range)
@@ -71,6 +80,21 @@ enum DayRules {
                 guard let start = source.rangeStart(from: first.piece.range, to: second.piece.range) else { return nil }
                 let piece = Piece(range: start..<second.piece.range.upperBound, value: Value.range(first.piece.value, second.piece.value))
                 return Candidate(piece: piece, needsTime: false)
+            }
+        }
+    }
+
+    /// A weekday followed by its date: "sexta, dia 25", "segunda-feira, 5/10".
+    /// The date decides, and the date is the hint the weekday needs.
+    private static func weekdaysWithDates(of candidates: [Candidate], in source: TextSource) -> [Candidate] {
+        candidates.flatMap { weekday in
+            candidates.compactMap { date in
+                guard case .weekday = weekday.piece.value,
+                      date.piece.value.isDate,
+                      weekday.piece.range.upperBound <= date.piece.range.lowerBound,
+                      source.words(in: weekday.piece.range.upperBound..<date.piece.range.lowerBound).isEmpty else { return nil }
+                let range = weekday.piece.range.lowerBound..<date.piece.range.upperBound
+                return Candidate(piece: Piece(range: range, value: date.piece.value), needsTime: false)
             }
         }
     }

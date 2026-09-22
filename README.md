@@ -35,17 +35,19 @@ date always gives the same result.
 | Kind | Examples |
 |---|---|
 | Relative day | hoje, amanhã, depois de amanhã, daqui 2 dias, em três semanas, daqui um mês |
-| Weekday | sexta que vem, próxima sexta, nesta quinta, na terça-feira, sábado, quarta da semana que vem |
+| Weekday | sexta que vem, próxima sexta, nesta quinta, na terça-feira, sábado, quarta da semana que vem, sexta, dia 25 |
 | Date | 25/09, 25/09/2026, 2026-10-15, 15 de outubro, vinte e três de outubro, 1º de maio, dia 30, dia quinze |
 | Period | esta semana, semana que vem, fim de semana, este mês, mês que vem, começo do mês que vem, fim do mês, ano que vem |
 | Holiday | no natal, véspera de natal, no ano novo, na páscoa, no carnaval, sexta-feira santa, corpus christi, dia de finados, dia das mães, dia dos pais |
-| Clock time | às 9, 14h, 9h30, 10:30, às 7 e meia, às sete da noite, às vinte e duas horas, 3 da tarde, quinze para as oito, meio-dia e meia, à meia-noite |
+| Clock time | às 9, 14h, 9h30, 10:30, 15:30h, às 7 e meia, às sete da noite, às vinte e duas horas, 3 da tarde, quinze para as oito, meio-dia e meia, à meia-noite |
 | Part of the day | de manhã, à tarde, à noite, de madrugada, cedo, à tardinha, tarde da noite, no fim da tarde |
 | Moment | no almoço, na janta, depois do almoço, antes de dormir, ao acordar, no café da manhã, depois do trabalho |
 | From now | daqui 2 horas, em meia hora, daqui a 20 minutos |
 | Range | das 14h às 16h, de 9 a 11h, entre 10 e 11h, de segunda a sexta, do dia 10 ao dia 15, de 10 a 15 de outubro |
 
-Accents and capitals are optional: "AMANHA as 9" and "no almoco" work too.
+Accents and capitals are optional: "AMANHA as 9" and "no almoco" work too. So
+do forms common in Portugal, such as "pelas 9", "às 15h00", "ao pequeno-almoço"
+and "ao fim da tarde".
 
 ## Installation
 

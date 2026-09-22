@@ -41,7 +41,8 @@ struct DayTests {
         ("dia dois", [2026, 10, 2]),
         ("até dia vinte e oito", [2026, 9, 28]),
         ("15 de dez", [2026, 12, 15]),
-        ("dez de dez", [2026, 12, 10])
+        ("dez de dez", [2026, 12, 10]),
+        ("a 5 de outubro", [2026, 10, 5])
     ])
     func day(_ example: (text: String, day: [Int])) throws {
         let found = try #require(interpret(example.text))
@@ -203,6 +204,18 @@ struct DayTests {
         let end = try #require(found.end)
         #expect(ymd(end) == [2026, 10, 2])
         #expect(hm(end) == [18, 0])
+    }
+
+    @Test("A weekday followed by its date is that date", arguments: [
+        ("segunda-feira, dia 5", [2026, 10, 5]),
+        ("sexta, dia 25", [2026, 9, 25]),
+        ("na quinta, 1º de outubro", [2026, 10, 1]),
+        ("sábado 3/10", [2026, 10, 3])
+    ])
+    func weekdayWithDate(_ example: (text: String, day: [Int])) throws {
+        let found = try #require(interpret(example.text))
+        #expect(ymd(found.date) == example.day)
+        #expect(parse(example.text).count == 1)
     }
 
     @Test("An ordinal is not a weekday", arguments: [
