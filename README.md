@@ -34,8 +34,8 @@ date always gives the same result.
 
 | Kind | Examples |
 |---|---|
-| Relative day | hoje, amanhã, depois de amanhã, daqui 2 dias, em três semanas, daqui um mês |
-| Weekday | sexta que vem, próxima sexta, nesta quinta, na terça-feira, sábado, quarta da semana que vem, sexta dia 25 |
+| Relative day | hoje, hj, amanhã, amn, depois de amanhã, daqui 2 dias, em três semanas, daqui um mês |
+| Weekday | sexta que vem, próxima sexta, nesta quinta, na terça-feira, sábado, quarta da semana que vem, sexta dia 25, na seg, prox sexta |
 | Date | 25/09, 25/09/2026, 2026-10-15, 15 de outubro, vinte e três de outubro, 1º de maio, dia 30, dia quinze |
 | Period | esta semana, semana que vem, fim de semana, este mês, mês que vem, começo do mês que vem, fim do mês, ano que vem |
 | Holiday | no natal, véspera de natal, no ano novo, na páscoa, no carnaval, sexta-feira santa, corpus christi, dia de finados, dia das mães, dia dos pais |
@@ -161,8 +161,9 @@ Documentation**.
 
 ## Not supported yet
 
-Past dates ("ontem", "sexta passada"), recurrence ("toda terça") and
-abbreviations ("seg", "amn") are on the [roadmap](https://github.com/bertalhia/swift-chrono-pt/issues).
+Past dates ("ontem", "sexta passada") and recurrence ("toda terça") are on the
+[roadmap](https://github.com/bertalhia/swift-chrono-pt/issues). "ter" is read as
+the verb "to have", never as Tuesday: write "terça".
 Bug reports are welcome: include the text, the reference date and time zone,
 the result you got and the one you expected.
 

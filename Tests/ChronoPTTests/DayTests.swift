@@ -42,7 +42,16 @@ struct DayTests {
         ("até dia vinte e oito", [2026, 9, 28]),
         ("15 de dez", [2026, 12, 15]),
         ("dez de dez", [2026, 12, 10]),
-        ("a 5 de outubro", [2026, 10, 5])
+        ("a 5 de outubro", [2026, 10, 5]),
+        ("amn", [2026, 9, 22]),
+        ("dps de amanhã", [2026, 9, 23]),
+        ("dps de amn", [2026, 9, 23]),
+        ("na seg", [2026, 9, 28]),
+        ("até qui", [2026, 9, 24]),
+        ("sex que vem", [2026, 9, 25]),
+        ("no sáb", [2026, 9, 26]),
+        ("dom que vem", [2026, 9, 27]),
+        ("prox sexta", [2026, 9, 25])
     ])
     func day(_ example: (text: String, day: [Int])) throws {
         let found = try #require(interpret(example.text))
@@ -79,7 +88,9 @@ struct DayTests {
         ("pagar a fatura este mês", [2026, 9, 21], [2026, 9, 30]),
         ("nesse mês", [2026, 9, 21], [2026, 9, 30]),
         ("trocar de carro ano que vem", [2027, 1, 1], [2027, 12, 31]),
-        ("no próximo ano", [2027, 1, 1], [2027, 12, 31])
+        ("no próximo ano", [2027, 1, 1], [2027, 12, 31]),
+        ("prox semana", [2026, 9, 28], [2026, 10, 4]),
+        ("de seg a sex", [2026, 9, 28], [2026, 10, 2])
     ])
     func namedPeriod(_ example: (text: String, start: [Int], end: [Int])) throws {
         let found = try #require(interpret(example.text))
@@ -216,6 +227,32 @@ struct DayTests {
         let found = try #require(interpret(example.text))
         #expect(ymd(found.date) == example.day)
         #expect(parse(example.text).count == 1)
+    }
+
+    @Test("An abbreviated weekday counts with a time right after it", arguments: [
+        ("qua 14h", [2026, 9, 23], [14, 0]),
+        ("seg às 9", [2026, 9, 28], [9, 0])
+    ])
+    func abbreviatedWeekdayWithTime(_ example: (text: String, day: [Int], time: [Int])) throws {
+        let found = try #require(interpret(example.text))
+        #expect(ymd(found.date) == example.day)
+        #expect(hm(found.date) == example.time)
+    }
+
+    @Test("An abbreviation with another meaning is not a weekday", arguments: [
+        "tem o dom de ensinar",
+        "esperar 30 seg",
+        "para ter certeza"
+    ])
+    func abbreviationWithAnotherMeaning(_ text: String) {
+        #expect(interpret(text) == nil)
+    }
+
+    @Test("\"Ter\" is the verb, not Tuesday")
+    func terIsTheVerb() throws {
+        let found = try #require(interpret("vou ter às 15 uma reunião"))
+        #expect(ymd(found.date) == [2026, 9, 21])
+        #expect(hm(found.date) == [15, 0])
     }
 
     @Test("An ordinal is not a weekday", arguments: [

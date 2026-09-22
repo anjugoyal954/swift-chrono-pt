@@ -67,7 +67,9 @@ struct TimeTests {
         ("amanhã à hora do jantar", 19, 0),
         ("amanhã ao fim da tarde", 18, 0),
         ("amanhã ao final da tarde", 18, 0),
-        ("amanhã ao fim do dia", 18, 0)
+        ("amanhã ao fim do dia", 18, 0),
+        ("amanhã dps do almoço", 14, 0),
+        ("amn às 11", 11, 0)
     ])
     func time(_ example: (text: String, hour: Int, minute: Int)) throws {
         let found = try #require(interpret(example.text))

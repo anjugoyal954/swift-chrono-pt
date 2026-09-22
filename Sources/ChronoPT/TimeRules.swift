@@ -359,17 +359,17 @@ enum TimeRules {
     /// Lowercase, without accents. The hour is the one a person would expect
     /// on the reminder: lunch at noon, dinner at 19:00, "de madrugada" at 5:00.
     private static let table: [Period] = [
-        Period(phrases: ["depois do almoco", "apos o almoco"], hour: 14),
+        Period(phrases: ["depois do almoco", "dps do almoco", "apos o almoco"], hour: 14),
         Period(phrases: ["antes do almoco"], hour: 11),
         Period(phrases: ["na hora do almoco", "no horario do almoco", "no almoco", "ao almoco", "a hora do almoco", "a hora de almoco", "na hora de almoco"], hour: 12),
-        Period(phrases: ["depois da janta", "depois do jantar", "apos a janta", "apos o jantar"], hour: 21),
+        Period(phrases: ["depois da janta", "depois do jantar", "dps da janta", "dps do jantar", "apos a janta", "apos o jantar"], hour: 21),
         Period(phrases: ["antes da janta", "antes do jantar"], hour: 18),
         Period(phrases: ["na hora da janta", "na hora do jantar", "na janta", "no jantar", "ao jantar", "a hora do jantar", "a hora de jantar", "na hora de jantar"], hour: 19),
         Period(phrases: ["no cafe da manha", "na hora do cafe", "ao cafe da manha", "ao pequeno-almoco", "no pequeno-almoco", "ao pequeno almoco"], hour: 8),
         Period(phrases: ["no lanche da tarde", "no cafe da tarde", "na hora do lanche"], hour: 16),
         Period(phrases: ["antes de dormir", "na hora de dormir"], hour: 22),
         Period(phrases: ["ao acordar", "quando acordar", "quando eu acordar", "assim que acordar"], hour: 7),
-        Period(phrases: ["depois do trabalho", "depois do expediente", "no fim do expediente", "saindo do trabalho"], hour: 18),
+        Period(phrases: ["depois do trabalho", "depois do expediente", "dps do trabalho", "dps do expediente", "no fim do expediente", "saindo do trabalho"], hour: 18),
         Period(phrases: ["de madrugada", "na madrugada", "pela madrugada"], hour: 5),
         Period(phrases: ["de manha cedo", "de manhazinha", "logo cedo", "bem cedo", "cedinho"], hour: 7),
         Period(phrases: ["cedo"], hour: 7, needsDay: true),

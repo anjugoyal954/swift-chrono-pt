@@ -110,11 +110,7 @@ enum DayRules {
         }
 
         for match in text.matches(of: relativeDay) {
-            let days = switch match.output.1 {
-            case "depois de amanha": 2
-            case "amanha": 1
-            default: 0
-            }
+            guard let days = relativeDays[String(match.output.1)] else { continue }
             add(match.range, .days(days))
         }
 
@@ -126,10 +122,10 @@ enum DayRules {
         }
 
         for match in text.matches(of: weekday) {
-            guard let day = weekdays[String(match.output.2)] else { continue }
-            let (prefix, feira, next) = (match.output.1, match.output.3, match.output.4)
+            let (prefix, name, feira, next) = (match.output.1, String(match.output.2), match.output.3, match.output.4)
+            guard let day = weekdays[name] else { continue }
             let nextWeek = next?.contains("semana") ?? false
-            let unambiguous = day == 1 || day == 7 || prefix != nil || feira != nil || next != nil
+            let unambiguous = weekdaysAlone.contains(name) || prefix != nil || feira != nil || next != nil
             add(match.range, .weekday(day, nextWeek: nextWeek), needsTime: !unambiguous)
         }
 
@@ -175,13 +171,13 @@ enum DayRules {
         for match in text.matches(of: namedPeriod) {
             let value: Value = switch match.output.1 {
             case "esta semana", "essa semana", "nesta semana", "nessa semana": .thisWeek
-            case "semana que vem", "proxima semana", "essa semana que vem", "esta semana que vem": .nextWeek
+            case "semana que vem", "proxima semana", "prox semana", "essa semana que vem", "esta semana que vem": .nextWeek
             case "este mes", "esse mes", "neste mes", "nesse mes": .thisMonth
-            case "mes que vem", "proximo mes": .nextMonth
+            case "mes que vem", "proximo mes", "prox mes": .nextMonth
             case "comeco do mes que vem", "inicio do mes que vem", "comeco do proximo mes", "inicio do proximo mes":
                 .startOfNextMonth
             case "fim do mes", "final do mes": .endOfMonth
-            case "ano que vem", "proximo ano": .nextYear
+            case "ano que vem", "proximo ano", "prox ano": .nextYear
             default: .weekend
             }
             add(match.range, value)
@@ -197,7 +193,7 @@ enum DayRules {
 
     private static var relativeDay: Regex<(Substring, Substring)> {
         RegexCache.regex {
-            #/\b(depois de amanha|amanha|hoje|hj)\b/#.wordBoundaryKind(.simple)
+            #/\b((?:depois|dps) de (?:amanha|amn)|amanha|amn|hoje|hj)\b/#.wordBoundaryKind(.simple)
         }
     }
 
@@ -212,7 +208,7 @@ enum DayRules {
     // "na sexta", "segunda-feira", "sexta que vem", "quarta da semana que vem"
     private static var weekday: Regex<(Substring, Substring?, Substring, Substring?, Substring?)> {
         RegexCache.regex {
-            #/\b(?:(na|no|nesta|neste|esta|este|essa|esse|nessa|nesse|proxima|proximo|ate|toda|todo|pra|para|pro) )?(segunda|terca|quarta|quinta|sexta|sabado|domingo)(-feira| feira)?( que vem| da semana que vem| da proxima semana)?\b/#
+            #/\b(?:(na|no|nesta|neste|esta|este|essa|esse|nessa|nesse|proxima|proximo|prox|ate|toda|todo|pra|para|pro) )?(segunda|terca|quarta|quinta|sexta|sabado|domingo|seg|qua|qui|sex|sab|dom)(-feira| feira)?( que vem| da semana que vem| da proxima semana)?\b/#
                 .wordBoundaryKind(.simple)
         }
     }
@@ -256,7 +252,7 @@ enum DayRules {
 
     private static var namedPeriod: Regex<(Substring, Substring)> {
         RegexCache.regex {
-            #/\b(esta semana que vem|essa semana que vem|esta semana|essa semana|nesta semana|nessa semana|semana que vem|proxima semana|fim de semana|final de semana|fds|este mes|esse mes|neste mes|nesse mes|(?:comeco|inicio) do (?:mes que vem|proximo mes)|mes que vem|proximo mes|fim do mes|final do mes|ano que vem|proximo ano)\b/#
+            #/\b(esta semana que vem|essa semana que vem|esta semana|essa semana|nesta semana|nessa semana|semana que vem|proxima semana|prox semana|fim de semana|final de semana|fds|este mes|esse mes|neste mes|nesse mes|(?:comeco|inicio) do (?:mes que vem|proximo mes)|mes que vem|proximo mes|prox mes|fim do mes|final do mes|ano que vem|proximo ano|prox ano)\b/#
                 .wordBoundaryKind(.simple)
         }
     }
@@ -303,9 +299,22 @@ enum DayRules {
         "dia dos pais": HolidayName(holiday: .secondSunday(month: 8))
     ]
 
-    private static let weekdays = [
-        "domingo": 1, "segunda": 2, "terca": 3, "quarta": 4, "quinta": 5, "sexta": 6, "sabado": 7
+    private static let relativeDays = [
+        "hoje": 0, "hj": 0, "amanha": 1, "amn": 1,
+        "depois de amanha": 2, "depois de amn": 2, "dps de amanha": 2, "dps de amn": 2
     ]
+
+    /// Abbreviations need the same hint as "segunda" to "sexta", even "sáb" and
+    /// "dom" ("o dom de ensinar"). "ter" is left out: it is the verb "to have"
+    /// ("para ter certeza", "vou ter às 15 uma reunião"), and no hint tells
+    /// the two apart.
+    private static let weekdays = [
+        "domingo": 1, "segunda": 2, "terca": 3, "quarta": 4, "quinta": 5, "sexta": 6, "sabado": 7,
+        "dom": 1, "seg": 2, "qua": 4, "qui": 5, "sex": 6, "sab": 7
+    ]
+
+    /// Weekdays with no other meaning, which count on their own.
+    private static let weekdaysAlone: Set<String> = ["sabado", "domingo"]
 
     private static let months = [
         "janeiro": 1, "jan": 1, "fevereiro": 2, "fev": 2, "marco": 3, "mar": 3, "abril": 4, "abr": 4,
