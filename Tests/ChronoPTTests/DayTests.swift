@@ -63,6 +63,40 @@ struct DayTests {
         #expect(ymd(found.end) == [2026, 10, 31])
     }
 
+    @Test("Named periods run from their first to their last day", arguments: [
+        ("terminar o relatório esta semana", [2026, 9, 21], [2026, 9, 27]),
+        ("nesta semana", [2026, 9, 21], [2026, 9, 27]),
+        ("essa semana que vem", [2026, 9, 28], [2026, 10, 4]),
+        ("pagar a fatura este mês", [2026, 9, 21], [2026, 9, 30]),
+        ("nesse mês", [2026, 9, 21], [2026, 9, 30]),
+        ("trocar de carro ano que vem", [2027, 1, 1], [2027, 12, 31]),
+        ("no próximo ano", [2027, 1, 1], [2027, 12, 31])
+    ])
+    func namedPeriod(_ example: (text: String, start: [Int], end: [Int])) throws {
+        let found = try #require(interpret(example.text))
+        #expect(ymd(found.date) == example.start)
+        #expect(ymd(found.end) == example.end)
+        #expect(found.hasTime == false)
+    }
+
+    @Test("The start of next month is its first day, not the whole month", arguments: [
+        "renovar no começo do mês que vem",
+        "início do próximo mês"
+    ])
+    func startOfNextMonth(_ text: String) throws {
+        let found = try #require(interpret(text))
+        #expect(ymd(found.date) == [2026, 10, 1])
+        #expect(found.end == nil)
+    }
+
+    @Test("\"Esta semana\" on a Sunday is just that day")
+    func thisWeekOnSunday() throws {
+        let sunday = monday.addingTimeInterval(6 * 86_400)
+        let found = try #require(interpret("esta semana", reference: sunday))
+        #expect(ymd(found.date) == [2026, 9, 27])
+        #expect(found.end == nil)
+    }
+
     @Test("An ordinal is not a weekday", arguments: [
         "pedir a segunda via do boleto",
         "quinta série",

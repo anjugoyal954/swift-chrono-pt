@@ -1,7 +1,7 @@
 import Foundation
 
 /// Day rules: "hoje", "amanhã", "sexta que vem", "25/09", "15 de outubro",
-/// "dia 30", "daqui 2 dias", "semana que vem", "fim de semana".
+/// "dia 30", "daqui 2 dias", "esta semana", "fim de semana", "ano que vem".
 ///
 /// Past days ("ontem") are left out on purpose: the date becomes a reminder,
 /// and a reminder in the past is useless.
@@ -19,10 +19,14 @@ enum DayRules {
         case weekday(Int, nextWeek: Bool)
         case date(day: Int, month: Int, year: Int?)
         case dayOfMonth(Int)
+        case thisWeek
         case nextWeek
         case weekend
+        case thisMonth
         case nextMonth
+        case startOfNextMonth
         case endOfMonth
+        case nextYear
     }
 
     private struct Candidate {
@@ -98,9 +102,14 @@ enum DayRules {
 
         for match in text.matches(of: namedPeriod) {
             let value: Value = switch match.output.1 {
-            case "semana que vem", "proxima semana": .nextWeek
+            case "esta semana", "essa semana", "nesta semana", "nessa semana": .thisWeek
+            case "semana que vem", "proxima semana", "essa semana que vem", "esta semana que vem": .nextWeek
+            case "este mes", "esse mes", "neste mes", "nesse mes": .thisMonth
             case "mes que vem", "proximo mes": .nextMonth
+            case "comeco do mes que vem", "inicio do mes que vem", "comeco do proximo mes", "inicio do proximo mes":
+                .startOfNextMonth
             case "fim do mes", "final do mes": .endOfMonth
+            case "ano que vem", "proximo ano": .nextYear
             default: .weekend
             }
             add(match.range, value)
@@ -151,7 +160,7 @@ enum DayRules {
     }
 
     private static var namedPeriod: Regex<(Substring, Substring)> {
-        #/\b(semana que vem|proxima semana|fim de semana|final de semana|fds|mes que vem|proximo mes|fim do mes|final do mes)\b/#
+        #/\b(esta semana que vem|essa semana que vem|esta semana|essa semana|nesta semana|nessa semana|semana que vem|proxima semana|fim de semana|final de semana|fds|este mes|esse mes|neste mes|nesse mes|(?:comeco|inicio) do (?:mes que vem|proximo mes)|mes que vem|proximo mes|fim do mes|final do mes|ano que vem|proximo ano)\b/#
             .wordBoundaryKind(.simple)
     }
 
@@ -227,6 +236,12 @@ enum DayRules {
                 matchingPolicy: .strict
             ).map { ($0, nil) }
 
+        case .thisWeek:
+            // From today to Sunday; on a Sunday, just today.
+            let weekday = calendar.component(.weekday, from: today)
+            guard weekday != 1 else { return (today, nil) }
+            return calendar.date(byAdding: .day, value: 8 - weekday, to: today).map { (today, $0) }
+
         case .nextWeek:
             guard let monday = nextMonday(after: today, calendar: calendar),
                   let sunday = calendar.date(byAdding: .day, value: 6, to: monday) else { return nil }
@@ -242,17 +257,39 @@ enum DayRules {
             guard let saturday, let sunday = calendar.date(byAdding: .day, value: 1, to: saturday) else { return nil }
             return (saturday, sunday)
 
+        case .thisMonth:
+            // From today to the last day; on the last day, just today.
+            guard let last = lastDayOfMonth(today, calendar: calendar) else { return nil }
+            return (today, last == today ? nil : last)
+
         case .nextMonth:
-            guard let thisMonth = calendar.dateInterval(of: .month, for: today)?.start,
-                  let first = calendar.date(byAdding: .month, value: 1, to: thisMonth),
-                  let last = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: first) else { return nil }
+            guard let first = firstDayOfNextMonth(today, calendar: calendar),
+                  let last = lastDayOfMonth(first, calendar: calendar) else { return nil }
+            return (first, last)
+
+        case .startOfNextMonth:
+            return firstDayOfNextMonth(today, calendar: calendar).map { ($0, nil) }
+
+        case .nextYear:
+            guard let thisYear = calendar.dateInterval(of: .year, for: today)?.start,
+                  let first = calendar.date(byAdding: .year, value: 1, to: thisYear),
+                  let last = calendar.date(byAdding: DateComponents(year: 1, day: -1), to: first) else { return nil }
             return (first, last)
 
         case .endOfMonth:
-            guard let interval = calendar.dateInterval(of: .month, for: today),
-                  let last = calendar.date(byAdding: .day, value: -1, to: interval.end) else { return nil }
-            return (calendar.startOfDay(for: last), nil)
+            return lastDayOfMonth(today, calendar: calendar).map { ($0, nil) }
         }
+    }
+
+    private static func firstDayOfNextMonth(_ day: Date, calendar: Calendar) -> Date? {
+        guard let thisMonth = calendar.dateInterval(of: .month, for: day)?.start else { return nil }
+        return calendar.date(byAdding: .month, value: 1, to: thisMonth)
+    }
+
+    private static func lastDayOfMonth(_ day: Date, calendar: Calendar) -> Date? {
+        guard let interval = calendar.dateInterval(of: .month, for: day),
+              let last = calendar.date(byAdding: .day, value: -1, to: interval.end) else { return nil }
+        return calendar.startOfDay(for: last)
     }
 
     private static let daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
