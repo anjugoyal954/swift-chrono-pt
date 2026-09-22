@@ -1,26 +1,34 @@
-# swift-chrono-pt
+# ChronoPT
 
 [![Tests](https://github.com/bertalhia/swift-chrono-pt/actions/workflows/tests.yml/badge.svg)](https://github.com/bertalhia/swift-chrono-pt/actions/workflows/tests.yml)
 [![Swift versions](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fbertalhia%2Fswift-chrono-pt%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/bertalhia/swift-chrono-pt)
 [![Platforms](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fbertalhia%2Fswift-chrono-pt%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/bertalhia/swift-chrono-pt)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Natural-language date and time parsing for Brazilian Portuguese, in Swift.
 
 ```swift
 import ChronoPT
 
-ChronoPT.interpret("comprar pão amanhã no almoço")
-// tomorrow, 12:00 — hasTime: true, text: "amanhã"
-
-ChronoPT.parse("dentista sexta às 14h, reunião dia 30 e ligar pro banco amanhã")
-// [sexta às 14h] [dia 30] [amanhã]
+let reminder = ChronoPT.interpret("comprar pão amanhã no almoço")
+reminder?.date     // tomorrow at 12:00
+reminder?.text     // "amanhã no almoço"
 ```
 
-It doesn't use the network, a language model or `NSDataDetector`. It is a
-small grammar in the style of [chrono](https://github.com/wanasit/chrono):
-rules find pieces of text that name a day or a time, then join a day and a time
-that sit next to each other. The same text with the same reference date always
-gives the same result, on every OS version.
+ChronoPT reads text the way people write notes and reminders in Brazil:
+"sexta às 14h", "depois da janta", "dia 30 à noite", "de segunda a sexta das
+9 às 18". It is a small rule-based grammar in the style of
+[chrono](https://github.com/wanasit/chrono), with no network access, no
+language model and no `NSDataDetector`. The same text with the same reference
+date always gives the same result.
+
+- [What it understands](#what-it-understands)
+- [Installation](#installation)
+- [Usage](#usage)
+- [How it reads ambiguous text](#how-it-reads-ambiguous-text)
+- [Not supported yet](#not-supported-yet)
+- [Contributing](#contributing)
+- [Em português](#em-português)
 
 ## What it understands
 
@@ -28,87 +36,147 @@ gives the same result, on every OS version.
 |---|---|
 | Relative day | hoje, amanhã, depois de amanhã, daqui 2 dias, em três semanas, daqui um mês |
 | Weekday | sexta que vem, próxima sexta, nesta quinta, na terça-feira, sábado, quarta da semana que vem |
-| Date | 25/09, 25/09/2026, 2026-10-15, 15 de outubro, vinte e três de outubro, 1º de maio, primeiro de janeiro, dia 30, dia quinze, dia primeiro |
+| Date | 25/09, 25/09/2026, 2026-10-15, 15 de outubro, vinte e três de outubro, 1º de maio, dia 30, dia quinze |
 | Period | esta semana, semana que vem, fim de semana, este mês, mês que vem, começo do mês que vem, fim do mês, ano que vem |
+| Holiday | no natal, véspera de natal, no ano novo, na páscoa, no carnaval, sexta-feira santa, corpus christi, dia de finados, dia das mães, dia dos pais |
 | Clock time | às 9, 14h, 9h30, 10:30, às 7 e meia, às sete da noite, às vinte e duas horas, 3 da tarde, quinze para as oito, meio-dia e meia, à meia-noite |
 | Part of the day | de manhã, à tarde, à noite, de madrugada, cedo, à tardinha, tarde da noite, no fim da tarde |
 | Moment | no almoço, na janta, depois do almoço, antes de dormir, ao acordar, no café da manhã, depois do trabalho |
 | From now | daqui 2 horas, em meia hora, daqui a 20 minutos |
-| Holiday | no natal, véspera de natal, no ano novo, na páscoa, no carnaval, sexta-feira santa, corpus christi, dia de finados, dia das mães, dia dos pais |
+| Range | das 14h às 16h, de 9 a 11h, entre 10 e 11h, de segunda a sexta, do dia 10 ao dia 15, de 10 a 15 de outubro |
 
-Accents are optional: "amanha as 9" and "no almoco" work too.
-
-Some choices the grammar makes on purpose:
-
-- "para a janta" is not a time. Only "na janta" or "no almoço", with a
-  preposition of time, set one. "comprar para a janta amanhã" (buy for
-  tomorrow's dinner) is tomorrow, with no time.
-- Ordinals are not weekdays. "segunda via do boleto" (a duplicate bill)
-  and "quinta série" (fifth grade) are not dates. Monday to Friday count only
-  with a hint: "na segunda", "segunda-feira", "sexta que vem", or a time right
-  after ("quinta às 14h").
-- A duration is not a time. "estudar por 2 horas" (study for 2 hours) and
-  "trabalhar 8h por dia" (work 8 hours a day) set no time.
-- Spoken "às 7" is 19:00, the way people say it; written "7h" is 7:00. A part
-  of the day settles it: "de manhã, às 7" and "amanhã de manhã, reunião às 7"
-  are 7:00.
-- Midnight of a day is the start of the next day.
-- A holiday name with another meaning needs a preposition: "no natal" is
-  Christmas, "voo para Natal" is the city, and "ovo de páscoa" is chocolate.
-
-Past dates ("ontem", "sexta passada") are not parsed yet.
+Accents and capitals are optional: "AMANHA as 9" and "no almoco" work too.
 
 ## Installation
 
-Listed on the [Swift Package Index](https://swiftpackageindex.com/bertalhia/swift-chrono-pt),
-which also hosts the [documentation](https://swiftpackageindex.com/bertalhia/swift-chrono-pt/documentation/chronopt).
-
-Swift Package Manager:
+Add the package in Xcode with **File › Add Package Dependencies…** and the URL
+`https://github.com/bertalhia/swift-chrono-pt.git`, or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/bertalhia/swift-chrono-pt.git", from: "0.2.0")
+dependencies: [
+    .package(url: "https://github.com/bertalhia/swift-chrono-pt.git", from: "0.2.0")
+],
+targets: [
+    .target(name: "MyApp", dependencies: [
+        .product(name: "ChronoPT", package: "swift-chrono-pt")
+    ])
+]
 ```
 
+Requires Swift 6.0 or later. Runs on iOS 16, macOS 13, watchOS 9, tvOS 16,
+visionOS 1 and Linux.
+
+## Usage
+
+### One date for the whole text
+
+`interpret` returns the date a note points to: the first day mentioned, at the
+time next to it or, if there is none, at the first time mentioned anywhere in
+the text. It returns `nil` when the text has no date.
+
 ```swift
-.product(name: "ChronoPT", package: "swift-chrono-pt")
+let note = ChronoPT.interpret("amanhã de manhã, reunião às 7")
+note?.date     // tomorrow at 7:00
+note?.hasTime  // true
 ```
 
-iOS 16, macOS 13, watchOS 9, tvOS 16, visionOS 1. Swift 6.
+### Every date in the text
 
-## API
+`parse` returns every expression, in the order it appears. Use `range` to
+highlight it in the original string.
 
 ```swift
-// Every expression in the text, in order.
-ChronoPT.parse(_ text: String, reference: Date = .now, calendar: Calendar = .current) -> [ParsedResult]
+let text = "dentista sexta às 14h, reunião dia 30 e ligar pro banco amanhã"
+let found = ChronoPT.parse(text)
+found.map(\.text)  // ["sexta às 14h", "dia 30", "amanhã"]
+text[found[0].range]  // "sexta às 14h"
+```
 
-// The date of the whole text: the first day, at the time next to it
-// or at the first time mentioned anywhere.
-ChronoPT.interpret(_ text: String, reference: Date = .now, calendar: Calendar = .current) -> ParsedResult?
+### Periods and ranges
 
-struct ParsedResult {
-    let range: Range<String.Index>  // in the input text
-    let text: String
-    let date: Date                  // noon when the text has no time
-    let end: Date?                  // periods: "semana que vem"
-    let hasTime: Bool
+Periods and ranges also fill `end`.
+
+```swift
+let shift = ChronoPT.interpret("plantão de segunda a sexta das 9 às 18")
+shift?.date  // next Monday at 9:00
+shift?.end   // that Friday at 18:00
+```
+
+### Reference date and calendar
+
+Relative expressions are computed from `reference`, which defaults to now.
+Weekdays, midnight and the time zone come from `calendar`, which defaults to
+`Calendar.current`. Pass both on servers and in tests:
+
+```swift
+var calendar = Calendar(identifier: .gregorian)
+calendar.timeZone = TimeZone(identifier: "America/Sao_Paulo")!
+
+let result = ChronoPT.interpret("sexta à noite", reference: someDate, calendar: calendar)
+```
+
+### The result
+
+```swift
+public struct ParsedResult: Sendable, Equatable {
+    public let range: Range<String.Index>  // where the expression is in the input
+    public let text: String                // the expression as written
+    public let date: Date                  // the start; noon when the text gives no time
+    public let end: Date?                  // the end of a period or range
+    public let hasTime: Bool               // false when the text gives only the day
 }
 ```
 
-## Tests
+A day without a time is set to noon, away from the midnight shifts of
+daylight saving time. Check `hasTime` before showing the hour.
 
-```bash
-swift test
-```
+Every public symbol has documentation comments. To browse them as DocC
+documentation, open the package in Xcode and choose **Product › Build
+Documentation**.
 
-Every test runs against a fixed reference date: Monday, 21 September 2026,
-10:00, São Paulo.
+## How it reads ambiguous text
+
+- A time with no day is today, or tomorrow if that time has passed.
+- A weekday is the next one, not counting today: "sexta" said on a Friday is
+  next week's.
+- Spoken "às 7" is 19:00, the way people say it, and written "7h" is 7:00. A
+  part of the day decides: "de manhã, às 7" and "amanhã de manhã, reunião às
+  7" are 7:00.
+- In a range, an ambiguous end is the first reading after the start: "das 7
+  às 9" is 19:00 to 21:00, and "das 7 às 9 da manhã" is 7:00 to 9:00.
+- "para a janta" is not a time. Only "na janta" or "no almoço", with a
+  preposition of time, set one: "comprar para a janta amanhã" (buy for
+  tomorrow's dinner) is tomorrow, with no time.
+- Ordinals are not weekdays: "segunda via do boleto" (a duplicate bill) and
+  "quinta série" (fifth grade) are not dates. Monday to Friday need a hint,
+  such as "na segunda", "segunda-feira", "sexta que vem", a time right after
+  ("quinta às 14h") or a range ("de segunda a sexta").
+- A duration is not a time: "estudar por 2 horas" and "trabalhar 8h por dia"
+  set no time.
+- A holiday name with another meaning needs a preposition: "no natal" is
+  Christmas, "voo para Natal" is the city, and "ovo de páscoa" is not a date.
+- Midnight of a day is the start of the next day.
+
+## Not supported yet
+
+Past dates ("ontem", "sexta passada"), recurrence ("toda terça") and
+abbreviations ("seg", "amn") are on the [roadmap](https://github.com/bertalhia/swift-chrono-pt/issues).
+Bug reports are welcome: include the text, the reference date and time zone,
+the result you got and the one you expected.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Every new case comes with a test, and
+`swift test` runs on macOS and Linux in CI.
 
 ## Em português
 
 Parser de data e hora em linguagem natural para português do Brasil, em
-Swift. Determinístico, sem rede e sem `NSDataDetector`. Entende dia relativo,
-dia da semana, data, período, horário, parte do dia e refeição ("amanhã no
-almoço", "sexta à noite", "depois da janta", "às sete e meia").
+Swift. Entende dia relativo, dia da semana, data, período, feriado, horário,
+parte do dia, refeição e intervalo ("amanhã no almoço", "sexta à noite",
+"depois da janta", "de segunda a sexta das 9 às 18"). Não usa rede, modelo de
+linguagem nem `NSDataDetector`: o mesmo texto, com a mesma data de
+referência, dá sempre o mesmo resultado.
 
 ## License
 

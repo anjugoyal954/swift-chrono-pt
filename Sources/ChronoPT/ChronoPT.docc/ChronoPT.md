@@ -10,7 +10,7 @@ Brazilian Portuguese: "amanhã no almoço", "sexta às 14h", "dia 30 à noite".
 ```swift
 let reminder = ChronoPT.interpret("comprar pão amanhã no almoço")
 // reminder?.date is tomorrow at 12:00
-// reminder?.text is "amanhã"
+// reminder?.text is "amanhã no almoço"
 ```
 
 Use ``ChronoPT/interpret(_:reference:calendar:)`` when the whole text is one
