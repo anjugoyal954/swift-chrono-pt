@@ -61,7 +61,7 @@ Add the package in Xcode with **File › Add Package Dependencies…** and the U
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/bertalhia/swift-chrono-pt.git", from: "0.6.0")
+    .package(url: "https://github.com/bertalhia/swift-chrono-pt.git", from: "0.7.0")
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
