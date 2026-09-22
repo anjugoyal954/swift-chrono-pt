@@ -33,7 +33,15 @@ struct DayTests {
         ("daqui uma semana", [2026, 9, 28]),
         ("em duas semanas", [2026, 10, 5]),
         ("daqui um mês", [2026, 10, 21]),
-        ("fim do mês", [2026, 9, 30])
+        ("fim do mês", [2026, 9, 30]),
+        ("vinte e três de outubro", [2026, 10, 23]),
+        ("trinta e um de dezembro", [2026, 12, 31]),
+        ("dezesseis de novembro", [2026, 11, 16]),
+        ("dia quinze", [2026, 10, 15]),
+        ("dia dois", [2026, 10, 2]),
+        ("até dia vinte e oito", [2026, 9, 28]),
+        ("15 de dez", [2026, 12, 15]),
+        ("dez de dez", [2026, 12, 10])
     ])
     func day(_ example: (text: String, day: [Int])) throws {
         let found = try #require(interpret(example.text))
@@ -122,6 +130,8 @@ struct DayTests {
         "comprar café",
         "ideia: gravar vídeo sobre isso",
         "pagar o boleto",
+        "tirar um dia de folga",
+        "não é um mar de rosas",
         "comprar 2 pacotes de arroz"
     ])
     func noDate(_ text: String) {

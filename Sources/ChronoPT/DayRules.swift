@@ -91,8 +91,11 @@ enum DayRules {
         }
 
         for match in text.matches(of: monthName) {
-            guard let day = dayNumber(match.output.1), let month = months[String(match.output.2)] else { continue }
-            add(match.range, .date(day: day, month: month, year: match.output.3.flatMap { Int($0) }))
+            let (_, dayText, of, monthText, yearText) = match.output
+            // A day in words needs "de": "um mar de rosas" is not a date.
+            guard Int(dayText) != nil || of != nil,
+                  let day = dayNumber(dayText), let month = months[String(monthText)] else { continue }
+            add(match.range, .date(day: day, month: month, year: yearText.flatMap { Int($0) }))
         }
 
         for match in text.matches(of: dayOfMonth) {
@@ -148,15 +151,15 @@ enum DayRules {
         #/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/#.wordBoundaryKind(.simple)
     }
 
-    // "15 de outubro", "dia 1º de maio", "primeiro de janeiro", "3 out 2027"
-    private static var monthName: Regex<(Substring, Substring, Substring, Substring?)> {
-        #/\b(?:dia )?(\d{1,2}|primeiro)(?:o|º)? (?:de )?(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b(?: (?:de )?(\d{4})\b)?/#
+    // "15 de outubro", "dia 1º de maio", "vinte e três de outubro", "3 out 2027"
+    private static var monthName: Regex<(Substring, Substring, Substring?, Substring, Substring?)> {
+        #/\b(?:dia )?(\d{1,2}|primeiro|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)(?:o|º)? (de )?(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b(?: (?:de )?(\d{4})\b)?/#
             .wordBoundaryKind(.simple)
     }
 
-    // "dia 30", "até dia 5", "dia primeiro"; "dia 25/09" is left to `numericDate`.
+    // "dia 30", "até dia 5", "dia primeiro", "dia quinze"; "dia 25/09" is left to `numericDate`.
     private static var dayOfMonth: Regex<(Substring, Substring)> {
-        #/\bdia (\d{1,2}|primeiro)\b(?!/)/#.wordBoundaryKind(.simple)
+        #/\bdia (\d{1,2}|primeiro|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)\b(?!/)/#.wordBoundaryKind(.simple)
     }
 
     private static var namedPeriod: Regex<(Substring, Substring)> {
@@ -175,7 +178,7 @@ enum DayRules {
     ]
 
     private static func dayNumber(_ text: Substring) -> Int? {
-        text == "primeiro" ? 1 : Int(text)
+        text == "primeiro" ? 1 : SpokenNumber.value(text)
     }
 
     /// A two-digit year is in this century: "27" is 2027.

@@ -243,9 +243,10 @@ enum TimeRules {
     // Computed, not stored: `Regex` is not `Sendable`. The text arrives
     // without accents or punctuation.
 
-    // "às 9", "14h", "9h30", "10:30", "às 7 e meia", "às sete da noite", "3 da tarde"
+    // "às 9", "14h", "9h30", "10:30", "às 7 e meia", "às sete da noite", "3 da tarde",
+    // "às vinte e duas horas", "às oito e trinta e cinco"
     private static var clock: Regex<(Substring, Substring?, Substring, Substring?, Substring?, Substring?, Substring?, Substring?)> {
-        #/\b(?:(as|ate as|pelas|la pelas|por volta das|a partir das|das) )?(\d{1,2}|uma|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze)(?:(:|h)(\d{2})\b|( ?(?:hrs|hr|hs|horas|hora|h))\b|\b)(?: e (meia|quinze|vinte e cinco|vinte|trinta|quarenta e cinco|quarenta|cinquenta|cinco|dez|\d{1,2})\b)?(?: (?:da|de|pela) (manha|tarde|noite|madrugada)\b)?/#
+        #/\b(?:(as|ate as|pelas|la pelas|por volta das|a partir das|das) )?(\d{1,2}|vinte e uma|vinte e um|vinte e duas|vinte e dois|vinte e tres|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|duas|uma)(?:(:|h)(\d{2})\b|( ?(?:hrs|hr|hs|horas|hora|h))\b|\b)(?: e (meia|(?:vinte|trinta|quarenta|cinquenta) e (?:um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove)|vinte|trinta|quarenta|cinquenta|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|cinco|\d{1,2})\b)?(?: (?:da|de|pela) (manha|tarde|noite|madrugada)\b)?/#
             .wordBoundaryKind(.simple)
     }
 
