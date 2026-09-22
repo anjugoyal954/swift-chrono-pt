@@ -5,7 +5,8 @@ import Foundation
 /// A position found here is the same position in the writer's text, and
 /// "Almoço," matches "almoco".
 ///
-/// Slash, colon and hyphen stay: "25/09", "10:30", "meio-dia".
+/// Slash, colon and hyphen stay: "25/09", "10:30", "meio-dia". En and em
+/// dashes become hyphens: "10h–11h".
 struct TextSource {
     let original: String
     let normalized: String
@@ -18,6 +19,7 @@ struct TextSource {
                 locale: Locale(identifier: "pt_BR")
             )
             guard folded.count == 1, let simple = folded.first else { return character }
+            if "–—".contains(simple) { return "-" }
             return simple.isLetter || simple.isNumber || "/:-".contains(simple) ? simple : " "
         })
     }
@@ -85,32 +87,42 @@ struct TextSource {
     /// Where a range from `first` to `second` starts, or nil when the words
     /// around them don't make one. It opens with "de", "do", "da", "das",
     /// "desde" or "entre", right before `first` or as its first word ("das
-    /// 14h"), and closes with "a" or "até", or "e" after "entre", between the
-    /// two or as the first word of `second` ("às 16h", "até sexta"). Articles
-    /// may sit in between: "de hoje até o dia 30".
-    func rangeStart(from first: Range<String.Index>, to second: Range<String.Index>) -> String.Index? {
+    /// 14h"); with `bareStart`, when `first` starts right at its number or name
+    /// ("14h às 16h", "segunda a sexta"), it needs no opening word. It closes
+    /// with "a" or "até", or "e" after "entre", between the two or as the first
+    /// word of `second` ("às 16h", "até sexta"), or with a hyphen alone
+    /// ("10h-11h", "seg-sex"). Articles may sit in between: "de hoje até o
+    /// dia 30".
+    func rangeStart(from first: Range<String.Index>, to second: Range<String.Index>, bareStart: Bool = false) -> String.Index? {
         guard first.upperBound <= second.lowerBound else { return nil }
-        let opening: (word: String, start: String.Index)
+        var opening: (word: String, start: String.Index)?
         if let word = words(after: first.lowerBound, count: 1).first, Self.rangeOpenings.contains(word) {
             opening = (word, first.lowerBound)
         } else if let before = wordRange(before: first.lowerBound), Self.rangeOpenings.contains(String(normalized[before])) {
             opening = (String(normalized[before]), before.lowerBound)
-        } else {
-            return nil
         }
+        guard opening != nil || bareStart else { return nil }
+        let start = opening?.start ?? first.lowerBound
+        let gap = first.upperBound..<second.lowerBound
+        let between = words(in: gap)
+        if between.isEmpty, normalized[gap].contains("-") { return start }
         // "de segunda e quarta" is two days, not a range.
-        let closings: Set<String> = opening.word == "entre" ? ["e"] : ["a", "as", "ao", "ate"]
-        let between = words(in: first.upperBound..<second.lowerBound)
+        let closings: Set<String> = opening?.word == "entre" ? ["e"] : ["a", "as", "ao", "ate"]
         guard between.allSatisfy({ closings.contains($0) || Self.articles.contains($0) }),
               (between + words(after: second.lowerBound, count: 1)).contains(where: closings.contains) else { return nil }
-        return opening.start
+        return start
+    }
+
+    /// The range starts right at a number: "14h", "10/10".
+    func startsWithNumber(_ range: Range<String.Index>) -> Bool {
+        words(after: range.lowerBound, count: 1).first?.first?.isNumber ?? false
     }
 
     private static let rangeOpenings: Set<String> = ["de", "do", "da", "das", "desde", "entre"]
     private static let articles: Set<String> = ["o", "a", "os", "as"]
 
     private static let connectors: Set<String> = [
-        "a", "as", "ao", "de", "do", "da", "no", "na", "pela", "pelo", "e", "la", "por", "volta"
+        "a", "as", "ao", "ate", "de", "do", "da", "no", "na", "pela", "pelo", "e", "la", "por", "volta"
     ]
 
     private static func isWordCharacter(_ character: Character?) -> Bool {

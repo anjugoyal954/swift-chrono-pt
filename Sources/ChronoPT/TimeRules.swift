@@ -78,13 +78,18 @@ enum TimeRules {
     }
 
     /// A group with two clock times joined as a range: "das 14h às 16h", "de
-    /// 9 a 11h", "entre 10 e 11h". Its range starts at the opening word.
+    /// 9 a 11h", "entre 10 e 11h", "14h às 16h", "10h-11h". Its range starts at
+    /// the opening word, if there is one.
     private static func range(in group: [Piece<Value>], source: TextSource) -> Expression? {
         guard let first = group.first, let last = group.last else { return nil }
         for index in group.indices.dropFirst() {
             guard case let .clock(hour, minute, ambiguous, nextDay, _) = group[index - 1].value,
                   case let .clock(endHour, endMinute, endAmbiguous, endNextDay, _) = group[index].value,
-                  let start = source.rangeStart(from: group[index - 1].range, to: group[index].range) else { continue }
+                  let start = source.rangeStart(
+                      from: group[index - 1].range,
+                      to: group[index].range,
+                      bareStart: source.startsWithNumber(group[index - 1].range)
+                  ) else { continue }
             let period = group.lazy.compactMap { piece -> Int? in
                 if case let .period(hour, _) = piece.value { hour } else { nil }
             }.first

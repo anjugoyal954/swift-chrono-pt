@@ -73,11 +73,17 @@ enum DayRules {
     }
 
     /// Two days joined as a range: "de segunda a sexta", "do dia 10 ao dia
-    /// 15", "de hoje até sexta". The range is the hint a weekday needs.
+    /// 15", "de hoje até sexta", "segunda a sexta", "seg-sex". The range is the
+    /// hint a weekday needs. With no opening word, the first day has to start
+    /// right at its number or name.
     private static func ranges(of candidates: [Candidate], in source: TextSource) -> [Candidate] {
         candidates.flatMap { first in
             candidates.compactMap { second in
-                guard let start = source.rangeStart(from: first.piece.range, to: second.piece.range) else { return nil }
+                let firstWord = source.words(after: first.piece.range.lowerBound, count: 1).first ?? ""
+                let bareStart = source.startsWithNumber(first.piece.range) || weekdays[firstWord] != nil
+                guard let start = source.rangeStart(from: first.piece.range, to: second.piece.range, bareStart: bareStart) else {
+                    return nil
+                }
                 let piece = Piece(range: start..<second.piece.range.upperBound, value: Value.range(first.piece.value, second.piece.value))
                 return Candidate(piece: piece, needsTime: false)
             }
