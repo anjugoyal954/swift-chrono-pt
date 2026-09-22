@@ -10,6 +10,10 @@ import Foundation
 /// counts with a hint that it is a day: "na segunda", "segunda-feira", "sexta
 /// que vem", or a time right after it ("sexta às 10", "quarta à noite").
 /// Saturday and Sunday have no other meaning and count on their own.
+///
+/// Holiday names with another meaning ("Natal" is also a city, "ovo de
+/// páscoa" is chocolate) count only after a preposition: "no natal", "na
+/// páscoa", "feriado de tiradentes".
 enum DayRules {
     enum Value: Sendable, Equatable {
         case days(Int)
@@ -27,6 +31,16 @@ enum DayRules {
         case startOfNextMonth
         case endOfMonth
         case nextYear
+        case holiday(Holiday)
+    }
+
+    /// A holiday: on a fixed date, counted from Easter, or on the second Sunday
+    /// of a month.
+    enum Holiday: Sendable, Equatable {
+        case fixed(month: Int, day: Int)
+        /// Days from Easter Sunday; `lastDay` when the holiday lasts several days.
+        case easter(offset: Int, lastDay: Int? = nil)
+        case secondSunday(month: Int)
     }
 
     private struct Candidate {
@@ -103,6 +117,12 @@ enum DayRules {
             add(match.range, .dayOfMonth(day))
         }
 
+        for match in text.matches(of: holidayName) {
+            let (_, preposition, name) = match.output
+            guard let entry = holidays[String(name)], preposition != nil || !entry.needsPreposition else { continue }
+            add(match.range, .holiday(entry.holiday))
+        }
+
         for match in text.matches(of: namedPeriod) {
             let value: Value = switch match.output.1 {
             case "esta semana", "essa semana", "nesta semana", "nessa semana": .thisWeek
@@ -166,6 +186,46 @@ enum DayRules {
         #/\b(esta semana que vem|essa semana que vem|esta semana|essa semana|nesta semana|nessa semana|semana que vem|proxima semana|fim de semana|final de semana|fds|este mes|esse mes|neste mes|nesse mes|(?:comeco|inicio) do (?:mes que vem|proximo mes)|mes que vem|proximo mes|fim do mes|final do mes|ano que vem|proximo ano)\b/#
             .wordBoundaryKind(.simple)
     }
+
+    // "no natal", "véspera de natal", "dia de finados", "na sexta-feira santa"
+    private static var holidayName: Regex<(Substring, Substring?, Substring)> {
+        #/\b(?:(no proximo|na proxima|no|na|ate o|ate a|ate|neste|nesta|nesse|nessa|este|esta|esse|essa|feriado de|feriado do|feriado da|dia de|dia do|dia da) )?(vespera de natal|natal|reveillon|virada do ano|ano novo|ano-novo|tiradentes|dia do trabalhador|dia do trabalho|independencia|dia das criancas|nossa senhora aparecida|finados|proclamacao da republica|consciencia negra|dia dos namorados|carnaval|quarta-feira de cinzas|quarta de cinzas|sexta-feira santa|sexta-feira da paixao|sexta santa|pascoa|corpus christi|dia das maes|dia dos pais)\b/#
+            .wordBoundaryKind(.simple)
+    }
+
+    private struct HolidayName {
+        let holiday: Holiday
+        var needsPreposition = false
+    }
+
+    private static let holidays: [String: HolidayName] = [
+        "natal": HolidayName(holiday: .fixed(month: 12, day: 25), needsPreposition: true),
+        "vespera de natal": HolidayName(holiday: .fixed(month: 12, day: 24)),
+        "reveillon": HolidayName(holiday: .fixed(month: 12, day: 31), needsPreposition: true),
+        "virada do ano": HolidayName(holiday: .fixed(month: 12, day: 31)),
+        "ano novo": HolidayName(holiday: .fixed(month: 1, day: 1), needsPreposition: true),
+        "ano-novo": HolidayName(holiday: .fixed(month: 1, day: 1), needsPreposition: true),
+        "tiradentes": HolidayName(holiday: .fixed(month: 4, day: 21), needsPreposition: true),
+        "dia do trabalho": HolidayName(holiday: .fixed(month: 5, day: 1)),
+        "dia do trabalhador": HolidayName(holiday: .fixed(month: 5, day: 1)),
+        "dia dos namorados": HolidayName(holiday: .fixed(month: 6, day: 12)),
+        "independencia": HolidayName(holiday: .fixed(month: 9, day: 7), needsPreposition: true),
+        "dia das criancas": HolidayName(holiday: .fixed(month: 10, day: 12)),
+        "nossa senhora aparecida": HolidayName(holiday: .fixed(month: 10, day: 12), needsPreposition: true),
+        "finados": HolidayName(holiday: .fixed(month: 11, day: 2)),
+        "proclamacao da republica": HolidayName(holiday: .fixed(month: 11, day: 15)),
+        "consciencia negra": HolidayName(holiday: .fixed(month: 11, day: 20), needsPreposition: true),
+        "carnaval": HolidayName(holiday: .easter(offset: -50, lastDay: -47), needsPreposition: true),
+        "quarta-feira de cinzas": HolidayName(holiday: .easter(offset: -46)),
+        "quarta de cinzas": HolidayName(holiday: .easter(offset: -46)),
+        "sexta-feira santa": HolidayName(holiday: .easter(offset: -2)),
+        "sexta-feira da paixao": HolidayName(holiday: .easter(offset: -2)),
+        "sexta santa": HolidayName(holiday: .easter(offset: -2)),
+        "pascoa": HolidayName(holiday: .easter(offset: 0), needsPreposition: true),
+        "corpus christi": HolidayName(holiday: .easter(offset: 60)),
+        "dia das maes": HolidayName(holiday: .secondSunday(month: 5)),
+        "dia dos pais": HolidayName(holiday: .secondSunday(month: 8))
+    ]
 
     private static let weekdays = [
         "domingo": 1, "segunda": 2, "terca": 3, "quarta": 4, "quinta": 5, "sexta": 6, "sabado": 7
@@ -281,7 +341,47 @@ enum DayRules {
 
         case .endOfMonth:
             return lastDayOfMonth(today, calendar: calendar).map { ($0, nil) }
+
+        case .holiday(let holiday):
+            // The next time the holiday comes, counting today; one that lasts
+            // several days and has started counts from today.
+            let year = calendar.component(.year, from: today)
+            for year in year...(year + 1) {
+                guard let days = days(of: holiday, in: year, calendar: calendar) else { return nil }
+                guard (days.end ?? days.start) >= today else { continue }
+                let start = max(days.start, today)
+                return (start, days.end == start ? nil : days.end)
+            }
+            return nil
         }
+    }
+
+    private static func days(of holiday: Holiday, in year: Int, calendar: Calendar) -> (start: Date, end: Date?)? {
+        switch holiday {
+        case .fixed(let month, let day):
+            return calendar.date(from: DateComponents(year: year, month: month, day: day)).map { ($0, nil) }
+        case .easter(let offset, let lastDay):
+            guard let easter = easter(in: year, calendar: calendar),
+                  let start = calendar.date(byAdding: .day, value: offset, to: easter) else { return nil }
+            return (start, lastDay.flatMap { calendar.date(byAdding: .day, value: $0, to: easter) })
+        case .secondSunday(let month):
+            guard let first = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else { return nil }
+            let firstSunday = (8 - calendar.component(.weekday, from: first)) % 7
+            return calendar.date(byAdding: .day, value: firstSunday + 7, to: first).map { ($0, nil) }
+        }
+    }
+
+    /// Easter Sunday by the Gregorian computus (Meeus/Jones/Butcher).
+    private static func easter(in year: Int, calendar: Calendar) -> Date? {
+        let a = year % 19, b = year / 100, c = year % 100
+        let d = b / 4, e = b % 4, f = (b + 8) / 25, g = (b - f + 1) / 3
+        let h = (19 * a + b - d - g + 15) % 30
+        let i = c / 4, k = c % 4
+        let l = (32 + 2 * e + 2 * i - h - k) % 7
+        let m = (a + 11 * h + 22 * l) / 451
+        let month = (h + l - 7 * m + 114) / 31
+        let day = (h + l - 7 * m + 114) % 31 + 1
+        return calendar.date(from: DateComponents(year: year, month: month, day: day))
     }
 
     private static func firstDayOfNextMonth(_ day: Date, calendar: Calendar) -> Date? {

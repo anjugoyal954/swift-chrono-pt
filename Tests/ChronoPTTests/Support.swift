@@ -12,6 +12,11 @@ let saoPaulo: Calendar = {
 
 let monday = saoPaulo.date(from: DateComponents(year: 2026, month: 9, day: 21, hour: 10))!
 
+/// Another reference date, at 10:00 in São Paulo.
+func reference(_ year: Int, _ month: Int, _ day: Int) -> Date {
+    saoPaulo.date(from: DateComponents(year: year, month: month, day: day, hour: 10))!
+}
+
 func interpret(_ text: String, reference: Date = monday) -> ParsedResult? {
     ChronoPT.interpret(text, reference: reference, calendar: saoPaulo)
 }

@@ -105,6 +105,64 @@ struct DayTests {
         #expect(found.end == nil)
     }
 
+    @Test("Holidays, fixed and counted from Easter", arguments: [
+        ("ceia no natal", [2026, 12, 25]),
+        ("véspera de natal", [2026, 12, 24]),
+        ("festa no réveillon", [2026, 12, 31]),
+        ("viajar no ano novo", [2027, 1, 1]),
+        ("feriado de tiradentes", [2027, 4, 21]),
+        ("no dia do trabalho", [2027, 5, 1]),
+        ("dia da independência", [2027, 9, 7]),
+        ("presente pro dia das crianças", [2026, 10, 12]),
+        ("dia de finados", [2026, 11, 2]),
+        ("proclamação da república", [2026, 11, 15]),
+        ("dia da consciência negra", [2026, 11, 20]),
+        ("jantar no dia dos namorados", [2027, 6, 12]),
+        ("quarta-feira de cinzas", [2027, 2, 10]),
+        ("na sexta-feira santa", [2027, 3, 26]),
+        ("almoço na páscoa", [2027, 3, 28]),
+        ("corpus christi", [2027, 5, 27]),
+        ("ligar pra mãe no dia das mães", [2027, 5, 9]),
+        ("dia dos pais", [2027, 8, 8])
+    ])
+    func holiday(_ example: (text: String, day: [Int])) throws {
+        let found = try #require(interpret(example.text))
+        #expect(ymd(found.date) == example.day)
+        #expect(found.hasTime == false)
+    }
+
+    @Test("Carnival runs from Saturday to Tuesday")
+    func carnival() throws {
+        let found = try #require(interpret("viajar no carnaval"))
+        #expect(ymd(found.date) == [2027, 2, 6])
+        #expect(ymd(found.end) == [2027, 2, 9])
+    }
+
+    @Test("A holiday that is already here counts from today")
+    func holidayToday() throws {
+        let found = try #require(interpret("no natal", reference: reference(2026, 12, 25)))
+        #expect(ymd(found.date) == [2026, 12, 25])
+        let carnival = try #require(interpret("no carnaval", reference: reference(2027, 2, 7)))
+        #expect(ymd(carnival.date) == [2027, 2, 7])
+        #expect(ymd(carnival.end) == [2027, 2, 9])
+    }
+
+    @Test("A holiday name with another meaning needs a preposition", arguments: [
+        "comprar ovo de páscoa",
+        "fantasia de carnaval",
+        "livro sobre consciência negra",
+        "igreja nossa senhora aparecida"
+    ])
+    func holidayNameWithoutPreposition(_ text: String) {
+        #expect(interpret(text) == nil)
+    }
+
+    @Test("Natal the city is not Christmas")
+    func natalCity() throws {
+        let found = try #require(interpret("voo para Natal amanhã"))
+        #expect(ymd(found.date) == [2026, 9, 22])
+    }
+
     @Test("An ordinal is not a weekday", arguments: [
         "pedir a segunda via do boleto",
         "quinta série",

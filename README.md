@@ -32,6 +32,7 @@ gives the same result, on every OS version.
 | Part of the day | de manhã, à tarde, à noite, de madrugada, cedo, à tardinha, tarde da noite, no fim da tarde |
 | Moment | no almoço, na janta, depois do almoço, antes de dormir, ao acordar, no café da manhã, depois do trabalho |
 | From now | daqui 2 horas, em meia hora, daqui a 20 minutos |
+| Holiday | no natal, véspera de natal, no ano novo, na páscoa, no carnaval, sexta-feira santa, corpus christi, dia de finados, dia das mães, dia dos pais |
 
 Accents are optional: "amanha as 9" and "no almoco" work too.
 
@@ -50,6 +51,8 @@ Some choices the grammar makes on purpose:
   of the day settles it: "de manhã, às 7" and "amanhã de manhã, reunião às 7"
   are 7:00.
 - Midnight of a day is the start of the next day.
+- A holiday name with another meaning needs a preposition: "no natal" is
+  Christmas, "voo para Natal" is the city, and "ovo de páscoa" is chocolate.
 
 Past dates ("ontem", "sexta passada") are not parsed yet.
 
