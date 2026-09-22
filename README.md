@@ -1,6 +1,8 @@
 # swift-chrono-pt
 
 [![Tests](https://github.com/bertalhia/swift-chrono-pt/actions/workflows/tests.yml/badge.svg)](https://github.com/bertalhia/swift-chrono-pt/actions/workflows/tests.yml)
+[![Swift versions](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fbertalhia%2Fswift-chrono-pt%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/bertalhia/swift-chrono-pt)
+[![Platforms](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fbertalhia%2Fswift-chrono-pt%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/bertalhia/swift-chrono-pt)
 
 Natural-language date and time parsing for Brazilian Portuguese, in Swift.
 
@@ -57,6 +59,9 @@ Some choices the grammar makes on purpose:
 Past dates ("ontem", "sexta passada") are not parsed yet.
 
 ## Installation
+
+Listed on the [Swift Package Index](https://swiftpackageindex.com/bertalhia/swift-chrono-pt),
+which also hosts the [documentation](https://swiftpackageindex.com/bertalhia/swift-chrono-pt/documentation/chronopt).
 
 Swift Package Manager:
 
