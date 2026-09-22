@@ -34,6 +34,9 @@ struct ReadmeTests {
         #expect(hm(chore.start.date) == [20, 0])
         #expect(chore.recurrence == .weekly(on: [.tuesday]))
 
+        let water = try #require(interpret("regar as plantas a cada 15 dias"))
+        #expect(water.recurrence == .every(DateComponents(day: 15)))
+
         let paid = try #require(interpret("paguei ontem", options: ParseOptions(allowsPast: true, defaultHour: 9)))
         #expect(ymd(paid.start.date) == [2026, 9, 20])
         #expect(hm(paid.start.date) == [9, 0])

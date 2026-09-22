@@ -38,6 +38,8 @@ enum DayRules {
         case lastMonth
         case lastYear
         case daily
+        /// Every so many days, weeks or months: "a cada 15 dias".
+        case interval(DateComponents)
         /// Weekdays as `Calendar` numbers them, in the order of the text.
         case weekly([Int])
         case monthly(Int)
@@ -67,6 +69,7 @@ enum DayRules {
         var recurrence: Recurrence? {
             switch self {
             case .daily: .daily
+            case .interval(let components): .every(components)
             case .weekly(let weekdays): .weekly(on: Set(weekdays.map { DayRules.localeWeekdays[$0 - 1] }))
             case .monthly(let day): .monthly(day: day)
             default: nil
@@ -92,7 +95,7 @@ enum DayRules {
                 [.year]
             case .holiday:
                 [.day, .month]
-            case .daily:
+            case .daily, .interval:
                 []
             case .weekly:
                 [.weekday]
@@ -127,9 +130,13 @@ enum DayRules {
     static func expressions(in source: TextSource, times: [TimeRules.Expression]) -> [Piece<Value>] {
         let found = candidates(in: source)
         let candidates = (found + ranges(of: found, in: source) + weekdaysWithDates(of: found, in: source)).filter { candidate in
-            !candidate.needsTime || times.contains { time in
-                time.range.lowerBound >= candidate.piece.range.upperBound
-                    && source.onlyConnectors(between: candidate.piece.range, and: time.range)
+            guard candidate.needsTime else { return true }
+            return times.contains { time in
+                guard source.onlyConnectors(between: candidate.piece.range, and: time.range) else { return false }
+                // A time before the day only counts with "de": "às 10 de
+                // quinta" is Thursday, but "às 10 segunda via" is not Monday.
+                return time.range.lowerBound >= candidate.piece.range.upperBound
+                    || source.word(before: candidate.piece.range.lowerBound) == "de"
             }
         }
         return Piece.nonOverlapping(candidates.map(\.piece), in: source)
@@ -211,6 +218,21 @@ enum DayRules {
 
         for match in text.matches(of: everyDay) {
             add(match.range, .daily)
+        }
+
+        for match in text.matches(of: everyInterval) {
+            guard let count = SpokenNumber.value(match.output.1) else { continue }
+            add(match.range, .interval(components(count, unit: match.output.2)))
+        }
+
+        for match in text.matches(of: fromToInterval) {
+            // "de 2 em 3 semanas" is not an interval.
+            guard let count = SpokenNumber.value(match.output.1), SpokenNumber.value(match.output.2) == count else { continue }
+            add(match.range, .interval(components(count, unit: match.output.3)))
+        }
+
+        for match in text.matches(of: everyUnit) {
+            add(match.range, .interval(components(1, unit: match.output.contains("semana") ? "semana" : "mes")))
         }
 
         for match in text.matches(of: everyMonth) {
@@ -330,6 +352,30 @@ enum DayRules {
     private static var lastWeekday: Regex<(Substring, Substring?, Substring?)> {
         RegexCache.regex {
             #/\b(?:(?:na|no|o|a) )?(?:(?:ultima|ultimo) (segunda|terca|quarta|quinta|sexta|sabado|domingo|seg|qua|qui|sex|sab|dom)(?:-feira| feira)?|(segunda|terca|quarta|quinta|sexta|sabado|domingo|seg|qua|qui|sex|sab|dom)(?:-feira| feira)? (?:passada|passado))\b/#
+                .wordBoundaryKind(.simple)
+        }
+    }
+
+    // "a cada 15 dias", "cada 2 meses"
+    private static var everyInterval: Regex<(Substring, Substring, Substring)> {
+        RegexCache.regex {
+            #/\b(?:a )?cada (\d{1,3}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta) (dias?|semanas?|mes|meses)\b/#
+                .wordBoundaryKind(.simple)
+        }
+    }
+
+    // "de 2 em 2 semanas"
+    private static var fromToInterval: Regex<(Substring, Substring, Substring, Substring)> {
+        RegexCache.regex {
+            #/\bde (\d{1,3}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta) em (\d{1,3}|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta) (dias?|semanas?|mes|meses)\b/#
+                .wordBoundaryKind(.simple)
+        }
+    }
+
+    // "toda semana", "todo mês", "semanalmente", "mensalmente"
+    private static var everyUnit: Regex<Substring> {
+        RegexCache.regex {
+            #/\b(?:toda(?:s as)? semanas?|todo(?:s os)? (?:mes|meses)|semanalmente|mensalmente)\b/#
                 .wordBoundaryKind(.simple)
         }
     }
@@ -457,6 +503,13 @@ enum DayRules {
         "dia das maes": HolidayName(holiday: .secondSunday(month: 5)),
         "dia dos pais": HolidayName(holiday: .secondSunday(month: 8))
     ]
+
+    /// Days, weeks or months, ready for `Calendar.date(byAdding:to:)`.
+    private static func components(_ count: Int, unit: some StringProtocol) -> DateComponents {
+        if unit.hasPrefix("dia") { DateComponents(day: count) }
+        else if unit.hasPrefix("semana") { DateComponents(weekOfYear: count) }
+        else { DateComponents(month: count) }
+    }
 
     private static func amount(_ count: Int, unit: Substring) -> Value {
         unit.hasPrefix("dia") ? .days(count) : unit.hasPrefix("semana") ? .weeks(count) : .months(count)
@@ -622,7 +675,7 @@ enum DayRules {
                   let last = calendar.date(byAdding: .day, value: -1, to: thisYear) else { return nil }
             return (first, last)
 
-        case .daily:
+        case .daily, .interval:
             return (today, nil)
 
         case .weekly(let weekdays):

@@ -239,6 +239,24 @@ struct DayTests {
         #expect(hm(found.start.date) == example.time)
     }
 
+    @Test("A time before a weekday counts with \"de\"", arguments: [
+        ("consulta às 7 e meia da manhã de quinta", [2026, 9, 24], [7, 30]),
+        ("reunião às 10 de quinta", [2026, 9, 24], [10, 0]),
+        ("levar o bolo às 20h de sexta", [2026, 9, 25], [20, 0])
+    ])
+    func timeBeforeWeekday(_ example: (text: String, day: [Int], time: [Int])) throws {
+        let found = try #require(interpret(example.text))
+        #expect(ymd(found.start.date) == example.day)
+        #expect(hm(found.start.date) == example.time)
+    }
+
+    @Test("A time before an ordinal does not make it a weekday")
+    func timeBeforeOrdinal() throws {
+        let found = try #require(interpret("pedir às 10 segunda via do boleto"))
+        #expect(ymd(found.start.date) == [2026, 9, 22])
+        #expect(hm(found.start.date) == [10, 0])
+    }
+
     @Test("An abbreviation with another meaning is not a weekday", arguments: [
         "tem o dom de ensinar",
         "esperar 30 seg",

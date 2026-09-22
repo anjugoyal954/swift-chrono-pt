@@ -45,7 +45,7 @@ date always gives the same result.
 | Moment | no almoço, na janta, depois do almoço, antes de dormir, ao acordar, no café da manhã, depois do trabalho |
 | From now | daqui 2 horas, em meia hora, daqui a 20 minutos |
 | Range | das 14h às 16h, 14h às 16h, 10h-11h, de 9 a 11h, entre 10 e 11h, de segunda a sexta, seg-sex, do dia 10 ao dia 15, de 10 a 15 de outubro |
-| Repeating | todo dia, todos os dias, toda terça, todas as sextas, às segundas e quartas, todo dia 5, todo mês no dia 10 |
+| Repeating | todo dia, todos os dias, toda terça, todas as sextas, às segundas e quartas, todo dia 5, todo mês no dia 10, a cada 15 dias, de 2 em 2 semanas, toda semana, mensalmente |
 | Past | ontem, anteontem, sexta passada, na última sexta, semana passada, mês passado, há 2 dias, 3 dias atrás, há 2 horas |
 
 Past dates count only with `allowsPast` (see [Options](#options)).
@@ -118,6 +118,9 @@ counting today.
 let chore = ChronoPT.interpret("tirar o lixo toda terça às 20h")
 chore?.start.date  // next Tuesday at 20:00
 chore?.recurrence  // .weekly(on: [.tuesday])
+
+let water = ChronoPT.interpret("regar as plantas a cada 15 dias")
+water?.recurrence  // .every(DateComponents(day: 15))
 ```
 
 ### Options
@@ -213,9 +216,8 @@ Documentation**.
 ## Not supported yet
 
 - "ter" is read as the verb "to have", never as Tuesday: write "terça".
-- A weekday needs its hint before the time, so "às 10 de quinta" gives 10:00,
-  not Thursday.
-- Repeating every few days or weeks: "a cada 15 dias", "de 2 em 2 semanas".
+- A weekday after a time needs "de": "às 10 de quinta" is Thursday, but "às 10
+  quinta" is not.
 
 What is missing is tracked in
 [issues](https://github.com/bertalhia/swift-chrono-pt/issues).

@@ -42,7 +42,8 @@ you can show it without inventing a year.
 ### Repeating and past dates
 
 ``ParsedResult/recurrence`` says how a date repeats ("toda terça", "todo dia
-às 8", "todo dia 5"), and ``ParsedResult/start`` is the next time it happens.
+às 8", "todo dia 5", "a cada 15 dias"), and ``ParsedResult/start`` is the next
+time it happens.
 Past dates ("ontem", "sexta passada", "há 2 dias") count only with
 ``ParseOptions/allowsPast``.
 

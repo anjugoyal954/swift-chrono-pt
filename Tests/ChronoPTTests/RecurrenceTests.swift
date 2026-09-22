@@ -34,6 +34,25 @@ struct RecurrenceTests {
         #expect(found.recurrence == example.recurrence)
     }
 
+    @Test("Repeating every few days, weeks or months", arguments: [
+        ("regar as plantas a cada 15 dias", [2026, 9, 21], Recurrence.every(DateComponents(day: 15))),
+        ("reunião de 2 em 2 semanas às 10h", [2026, 9, 21], .every(DateComponents(weekOfYear: 2))),
+        ("toda semana", [2026, 9, 21], .every(DateComponents(weekOfYear: 1))),
+        ("todo mês", [2026, 9, 21], .every(DateComponents(month: 1))),
+        ("mensalmente", [2026, 9, 21], .every(DateComponents(month: 1))),
+        ("semanalmente", [2026, 9, 21], .every(DateComponents(weekOfYear: 1)))
+    ])
+    func interval(_ example: (text: String, day: [Int], recurrence: Recurrence)) throws {
+        let found = try #require(interpret(example.text))
+        #expect(ymd(found.start.date) == example.day)
+        #expect(found.recurrence == example.recurrence)
+    }
+
+    @Test("Different counts are not an interval")
+    func mismatchedInterval() throws {
+        #expect(try #require(interpret("de 2 em 3 semanas")).recurrence == nil)
+    }
+
     @Test("A single day does not repeat", arguments: ["amanhã", "na segunda", "sexta às 10", "dia 5"])
     func single(_ text: String) throws {
         #expect(try #require(interpret(text)).recurrence == nil)
