@@ -32,6 +32,8 @@ enum DayRules {
         case endOfMonth
         case nextYear
         case holiday(Holiday)
+        /// From one day to another: "de segunda a sexta", "do dia 10 ao dia 15".
+        indirect case range(Value, Value)
     }
 
     /// A holiday: on a fixed date, counted from Easter, or on the second Sunday
@@ -51,13 +53,26 @@ enum DayRules {
 
     /// The days mentioned in the text, without overlap, in text order.
     static func expressions(in source: TextSource, times: [TimeRules.Expression]) -> [Piece<Value>] {
-        let candidates = candidates(in: source).filter { candidate in
+        let found = candidates(in: source)
+        let candidates = (found + ranges(of: found, in: source)).filter { candidate in
             !candidate.needsTime || times.contains { time in
                 time.range.lowerBound >= candidate.piece.range.upperBound
                     && source.onlyConnectors(between: candidate.piece.range, and: time.range)
             }
         }
         return Piece.nonOverlapping(candidates.map(\.piece), in: source)
+    }
+
+    /// Two days joined as a range: "de segunda a sexta", "do dia 10 ao dia
+    /// 15", "de hoje até sexta". The range is the hint a weekday needs.
+    private static func ranges(of candidates: [Candidate], in source: TextSource) -> [Candidate] {
+        candidates.flatMap { first in
+            candidates.compactMap { second in
+                guard let start = source.rangeStart(from: first.piece.range, to: second.piece.range) else { return nil }
+                let piece = Piece(range: start..<second.piece.range.upperBound, value: Value.range(first.piece.value, second.piece.value))
+                return Candidate(piece: piece, needsTime: false)
+            }
+        }
     }
 
     // MARK: - Rules
@@ -110,6 +125,16 @@ enum DayRules {
             guard Int(dayText) != nil || of != nil,
                   let day = dayNumber(dayText), let month = months[String(monthText)] else { continue }
             add(match.range, .date(day: day, month: month, year: yearText.flatMap { Int($0) }))
+        }
+
+        for match in text.matches(of: dayRangeInMonth) {
+            let (_, opening, firstText, closing, lastText, monthText, yearText) = match.output
+            // "de 3 e 5 de maio" is two days, not a range.
+            guard (opening == "entre") == (closing == "e"),
+                  let first = dayNumber(firstText), let last = dayNumber(lastText),
+                  let month = months[String(monthText)] else { continue }
+            let year = yearText.flatMap { Int($0) }
+            add(match.range, .range(.date(day: first, month: month, year: year), .date(day: last, month: month, year: year)))
         }
 
         for match in text.matches(of: dayOfMonth) {
@@ -174,6 +199,12 @@ enum DayRules {
     // "15 de outubro", "dia 1º de maio", "vinte e três de outubro", "3 out 2027"
     private static var monthName: Regex<(Substring, Substring, Substring?, Substring, Substring?)> {
         #/\b(?:dia )?(\d{1,2}|primeiro|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)(?:o|º)? (de )?(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b(?: (?:de )?(\d{4})\b)?/#
+            .wordBoundaryKind(.simple)
+    }
+
+    // "de 10 a 15 de outubro", "entre 3 e 5 de maio": the first day takes the month of the second
+    private static var dayRangeInMonth: Regex<(Substring, Substring, Substring, Substring, Substring, Substring, Substring?)> {
+        #/\b(de|entre) (\d{1,2}|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)(?:o|º)? (a|ao|ate|e) (\d{1,2}|vinte e (?:um|dois|tres|quatro|cinco|seis|sete|oito|nove)|trinta e um|trinta|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|dois|um)(?:o|º)? de (janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b(?: (?:de )?(\d{4})\b)?/#
             .wordBoundaryKind(.simple)
     }
 
@@ -341,6 +372,24 @@ enum DayRules {
 
         case .endOfMonth:
             return lastDayOfMonth(today, calendar: calendar).map { ($0, nil) }
+
+        case .range(let from, let to):
+            // The end is the first time `to` comes from the start on: "de
+            // segunda a sexta" said on a Monday runs from next Monday to that
+            // Friday. A day of the month takes the month of the end: "do dia
+            // 10 ao dia 15 de novembro".
+            let from: Value = if case .dayOfMonth(let day) = from, case let .date(last, month, year) = to, day <= last {
+                .date(day: day, month: month, year: year)
+            } else {
+                from
+            }
+            guard let first = resolve(from, reference: reference, calendar: calendar),
+                  var last = resolve(to, reference: reference, calendar: calendar) else { return nil }
+            if (last.end ?? last.start) < first.start, let later = resolve(to, reference: first.start, calendar: calendar) {
+                last = later
+            }
+            let end = last.end ?? last.start
+            return end > first.start ? (first.start, end) : first
 
         case .holiday(let holiday):
             // The next time the holiday comes, counting today; one that lasts

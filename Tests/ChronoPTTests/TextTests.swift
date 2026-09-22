@@ -35,6 +35,13 @@ struct TextTests {
         #expect(found.map(\.hasTime) == [true, false, false])
     }
 
+    @Test("A range comes out as one expression, opening word included")
+    func rangeText() throws {
+        #expect(parse("reunião das 14h às 16h").map(\.text) == ["das 14h às 16h"])
+        #expect(try #require(interpret("reunião de 14h a 16h")).text == "de 14h a 16h")
+        #expect(try #require(interpret("férias de 10 a 15 de outubro")).text == "de 10 a 15 de outubro")
+    }
+
     @Test("A time apart from the day is its own expression")
     func separateTime() {
         let found = parse("amanhã comprar pão no almoço")

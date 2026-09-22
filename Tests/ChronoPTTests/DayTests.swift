@@ -163,6 +163,48 @@ struct DayTests {
         #expect(ymd(found.date) == [2026, 9, 22])
     }
 
+    @Test("A day range sets the first and the last day", arguments: [
+        ("de segunda a sexta", [2026, 9, 28], [2026, 10, 2]),
+        ("da segunda à sexta", [2026, 9, 28], [2026, 10, 2]),
+        ("entre segunda e quarta", [2026, 9, 28], [2026, 9, 30]),
+        ("de hoje até sexta", [2026, 9, 21], [2026, 9, 25]),
+        ("de amanhã até o dia 30", [2026, 9, 22], [2026, 9, 30]),
+        ("do dia 10 ao dia 15", [2026, 10, 10], [2026, 10, 15]),
+        ("do dia 10 ao dia 15 de novembro", [2026, 11, 10], [2026, 11, 15]),
+        ("de 10 a 15 de outubro", [2026, 10, 10], [2026, 10, 15]),
+        ("entre 3 e 5 de maio", [2027, 5, 3], [2027, 5, 5]),
+        ("de 10/10 a 15/10", [2026, 10, 10], [2026, 10, 15]),
+        ("de 28 de dezembro a 3 de janeiro", [2026, 12, 28], [2027, 1, 3])
+    ])
+    func dayRange(_ example: (text: String, start: [Int], end: [Int])) throws {
+        let found = try #require(interpret(example.text))
+        #expect(found.text == example.text)
+        #expect(ymd(found.date) == example.start)
+        #expect(ymd(found.end) == example.end)
+        #expect(found.hasTime == false)
+    }
+
+    @Test("\"E\" closes a range only after \"entre\"", arguments: [
+        ("do dia 10 e dia 15", [2026, 10, 10]),
+        ("de 10 e 15 de outubro", [2026, 10, 15])
+    ])
+    func notADayRange(_ example: (text: String, day: [Int])) throws {
+        let found = try #require(interpret(example.text))
+        #expect(ymd(found.date) == example.day)
+        #expect(found.end == nil)
+    }
+
+    @Test("A day range with a time range runs from the first start to the last end")
+    func dayAndTimeRange() throws {
+        let found = try #require(interpret("plantão de segunda a sexta das 9 às 18"))
+        #expect(found.text == "de segunda a sexta das 9 às 18")
+        #expect(ymd(found.date) == [2026, 9, 28])
+        #expect(hm(found.date) == [9, 0])
+        let end = try #require(found.end)
+        #expect(ymd(end) == [2026, 10, 2])
+        #expect(hm(end) == [18, 0])
+    }
+
     @Test("An ordinal is not a weekday", arguments: [
         "pedir a segunda via do boleto",
         "quinta série",
@@ -190,6 +232,7 @@ struct DayTests {
         "pagar o boleto",
         "tirar um dia de folga",
         "não é um mar de rosas",
+        "comprar de 10 a 15 laranjas",
         "comprar 2 pacotes de arroz"
     ])
     func noDate(_ text: String) {

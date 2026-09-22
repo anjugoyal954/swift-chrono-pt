@@ -11,8 +11,9 @@ enum TimeRules {
     enum Value: Sendable {
         /// `ambiguous` when the words don't say morning or evening: "às 7".
         /// `minute` is negative for minutes before the hour: "quinze para as
-        /// oito" is 8:00 and -15.
-        case clock(hour: Int, minute: Int, ambiguous: Bool, nextDay: Bool)
+        /// oito" is 8:00 and -15. `needsEnd` for a bare hour that counts only
+        /// as the start of a range: "de 9 a 11h".
+        case clock(hour: Int, minute: Int, ambiguous: Bool, nextDay: Bool, needsEnd: Bool = false)
         /// Part of the day or moment. `needsDay` when it is not a time on its
         /// own: "chegar cedo".
         case period(hour: Int, needsDay: Bool)
@@ -25,6 +26,8 @@ enum TimeRules {
     /// The time, already decided.
     enum Resolved: Sendable {
         case at(Clock)
+        /// A time range: "das 14h às 16h".
+        case between(Clock, until: Clock)
         case fromNow(minutes: Int)
     }
 
@@ -43,7 +46,7 @@ enum TimeRules {
     /// Every time piece, without overlap, in text order.
     private static func candidates(in source: TextSource) -> [Piece<Value>] {
         let found = clocks(in: source) + minutesToHour(in: source) + noonAndMidnight(in: source)
-            + fromNow(in: source) + periods(in: source)
+            + rangeStarts(in: source) + fromNow(in: source) + periods(in: source)
         return Piece.nonOverlapping(found, in: source)
     }
 
@@ -70,8 +73,68 @@ enum TimeRules {
         }
         return groups.compactMap { group in
             guard let first = group.first, let last = group.last else { return nil }
-            return resolve(group, range: first.range.lowerBound..<last.range.upperBound)
+            return range(in: group, source: source) ?? resolve(group, range: first.range.lowerBound..<last.range.upperBound)
         }
+    }
+
+    /// A group with two clock times joined as a range: "das 14h às 16h", "de
+    /// 9 a 11h", "entre 10 e 11h". Its range starts at the opening word.
+    private static func range(in group: [Piece<Value>], source: TextSource) -> Expression? {
+        guard let first = group.first, let last = group.last else { return nil }
+        for index in group.indices.dropFirst() {
+            guard case let .clock(hour, minute, ambiguous, nextDay, _) = group[index - 1].value,
+                  case let .clock(endHour, endMinute, endAmbiguous, endNextDay, _) = group[index].value,
+                  let start = source.rangeStart(from: group[index - 1].range, to: group[index].range) else { continue }
+            let period = group.lazy.compactMap { piece -> Int? in
+                if case let .period(hour, _) = piece.value { hour } else { nil }
+            }.first
+            let (from, until) = range(
+                from: (hour, minute, ambiguous, nextDay),
+                to: (endHour, endMinute, endAmbiguous, endNextDay),
+                period: period
+            )
+            let range = min(start, first.range.lowerBound)..<last.range.upperBound
+            return Expression(range: range, value: .between(from, until: until), needsDay: false, pieces: group)
+        }
+        return nil
+    }
+
+    /// The two ends of a time range. A part of the day settles both. Without
+    /// one, the start reads as a single time would, unless the end says the
+    /// half of the day ("das 7 às 9 da manhã" is 7:00 to 9:00), and an
+    /// ambiguous end is the first reading after the start ("das 7 às 9" is
+    /// 19:00 to 21:00). An end before the start is on the next day.
+    private static func range(from start: ClockPiece, to end: ClockPiece, period: Int?) -> (Clock, Clock) {
+        let ends = readings(of: end, period: period)
+        let single = minutes(of: start, period: period)
+        let from = ends.count == 1 ? readings(of: start, period: period).last { $0 < ends[0] } ?? single : single
+        let until = ends.first { $0 > from } ?? ends[0] + 24 * 60
+        return (time(minutes: from), time(minutes: until))
+    }
+
+    private typealias ClockPiece = (hour: Int, minute: Int, ambiguous: Bool, nextDay: Bool)
+
+    /// Minutes from the start of the day. An ambiguous hour follows the part
+    /// of the day or, without one, the way people speak: one to seven is
+    /// afternoon or evening ("às 7" is 19:00), eight to eleven is morning.
+    private static func minutes(of clock: ClockPiece, period: Int?) -> Int {
+        let afternoon = clock.ambiguous && (period.map { $0 >= 12 } ?? (clock.hour <= 7))
+        return (clock.hour + (afternoon ? 12 : 0)) * 60 + clock.minute + (clock.nextDay ? 24 * 60 : 0)
+    }
+
+    /// Both halves of the day for an ambiguous hour with no part of the day;
+    /// one reading otherwise.
+    private static func readings(of clock: ClockPiece, period: Int?) -> [Int] {
+        guard clock.ambiguous, period == nil else { return [minutes(of: clock, period: period)] }
+        let morning = clock.hour * 60 + clock.minute
+        return [morning, morning + 12 * 60]
+    }
+
+    /// Minutes as a clock time; past midnight is the next day. Minutes before
+    /// the hour move back from the named hour: "dez para a meia-noite" is 23:50
+    /// of the same day.
+    private static func time(minutes: Int) -> Clock {
+        Clock(hour: minutes / 60 % 24, minute: minutes % 60, nextDay: minutes >= 24 * 60)
     }
 
     /// A part of the day next to the day and a clock time said further on make
@@ -79,7 +142,8 @@ enum TimeRules {
     /// reunião às 7" is 7:00, while "amanhã de manhã, jantar às 19h" stays at
     /// 9:00. The range stays the part of the day's.
     static func joining(_ partOfDay: Expression, _ clock: Expression) -> Expression? {
-        guard partOfDay.pieces.allSatisfy(\.value.isPeriod),
+        guard case .at = clock.value,
+              partOfDay.pieces.allSatisfy(\.value.isPeriod),
               clock.pieces.allSatisfy(\.value.isClock),
               case .at(let period) = partOfDay.value,
               let joined = resolve(partOfDay.pieces + clock.pieces, range: partOfDay.range),
@@ -92,32 +156,22 @@ enum TimeRules {
     /// and the part of the day settles a clock time that doesn't say morning
     /// or evening: "de manhã, às 7" is 7:00.
     private static func resolve(_ group: [Piece<Value>], range: Range<String.Index>) -> Expression? {
-        var clock: (hour: Int, minute: Int, ambiguous: Bool, nextDay: Bool)?
+        var clock: ClockPiece?
         var period: (hour: Int, needsDay: Bool)?
 
         for piece in group {
             switch piece.value {
             case .fromNow(let minutes):
                 return Expression(range: range, value: .fromNow(minutes: minutes), needsDay: false, pieces: group)
-            case let .clock(hour, minute, ambiguous, nextDay):
-                if clock == nil { clock = (hour, minute, ambiguous, nextDay) }
+            case let .clock(hour, minute, ambiguous, nextDay, needsEnd):
+                if clock == nil, !needsEnd { clock = (hour, minute, ambiguous, nextDay) }
             case let .period(hour, needsDay):
                 if period == nil { period = (hour, needsDay) }
             }
         }
 
         if let clock {
-            var hour = clock.hour
-            if clock.ambiguous {
-                // With no part of the day, follow how people speak: one to seven
-                // is afternoon or evening ("às 7" is 19:00), eight to eleven is morning.
-                let afternoon = period.map { $0.hour >= 12 } ?? (hour <= 7)
-                if afternoon { hour += 12 }
-            }
-            // Minutes before the hour move back from the named hour: "dez para a
-            // meia-noite" is 23:50 of the same day.
-            let minutes = hour * 60 + clock.minute + (clock.nextDay ? 24 * 60 : 0)
-            let time = Clock(hour: minutes / 60 % 24, minute: minutes % 60, nextDay: minutes >= 24 * 60)
+            let time = time(minutes: minutes(of: clock, period: period?.hour))
             return Expression(range: range, value: .at(time), needsDay: false, pieces: group)
         }
         if let period {
@@ -188,6 +242,16 @@ enum TimeRules {
         }
     }
 
+    /// A bare hour after "de" or "entre", followed by the word that closes a
+    /// range: "de 9" in "de 9 a 11h". It counts only with an end.
+    private static func rangeStarts(in source: TextSource) -> [Piece<Value>] {
+        source.normalized.matches(of: bareRangeStart).compactMap { match in
+            guard let hour = SpokenNumber.value(match.output.1), (0...23).contains(hour) else { return nil }
+            let value = Value.clock(hour: hour, minute: 0, ambiguous: (1...11).contains(hour), nextDay: false, needsEnd: true)
+            return Piece(range: match.range, value: value)
+        }
+    }
+
     /// The 24-hour clock for a spoken hour and its part of the day: "7 da
     /// noite" is 19:00, and "12 da noite" is midnight, the start of the next day.
     private static func clockHour(_ base: Int, meridiem: Substring) -> (hour: Int, nextDay: Bool) {
@@ -253,6 +317,12 @@ enum TimeRules {
     // "quinze para as oito", "vinte e cinco pras 9", "10 minutos para as 3 da tarde"
     private static var minutesTo: Regex<(Substring, Substring, Substring?, Substring, Substring?)> {
         #/\b(?:(?:as|pelas|la pelas|por volta das|ate as) )?(vinte e cinco|cinco|dez|quinze|vinte|\d{1,2})( min| minutos)? (?:para as|para a|para o|pras|pra as|pra a|pro) (\d{1,2}|uma|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|meio-dia|meio dia|meia-noite|meia noite)\b(?: (?:da|de|pela) (manha|tarde|noite|madrugada)\b)?/#
+            .wordBoundaryKind(.simple)
+    }
+
+    // "de 9 a 11h", "entre 10 e 11h"
+    private static var bareRangeStart: Regex<(Substring, Substring)> {
+        #/\b(?:de|entre) (\d{1,2}|vinte e uma|vinte e um|vinte e duas|vinte e dois|vinte e tres|vinte|dezenove|dezoito|dezessete|dezesseis|quinze|catorze|quatorze|treze|doze|onze|dez|nove|oito|sete|seis|cinco|quatro|tres|duas|uma)\b(?= (?:a|as|ate|e) )/#
             .wordBoundaryKind(.simple)
     }
 

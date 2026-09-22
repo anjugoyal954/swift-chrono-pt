@@ -83,8 +83,8 @@ public struct ParsedResult: Sendable, Equatable {
     /// The start. With no time in the text, it is noon of that day, far from
     /// the midnight shifts of daylight saving time.
     public let date: Date
-    /// The end, when the expression is a period ("semana que vem", "fim de
-    /// semana").
+    /// The end, when the expression is a period or a range ("semana que vem",
+    /// "de segunda a sexta", "das 14h às 16h").
     public let end: Date?
     /// `false` when the text gave only the day.
     public let hasTime: Bool
@@ -127,6 +127,9 @@ struct Context {
             case .at(let clock):
                 date = clock.on(days.start, calendar: calendar)
                 end = days.end.flatMap { clock.on($0, calendar: calendar) }
+            case .between(let start, let until):
+                date = start.on(days.start, calendar: calendar)
+                end = until.on(days.end ?? days.start, calendar: calendar)
             }
             guard let date else { return nil }
             // A day and a time next to each other come out together; apart, only the day.
@@ -137,16 +140,22 @@ struct Context {
         }
 
         guard let time, !time.needsDay else { return nil }
-        let date: Date
         switch time.value {
         case .fromNow(let minutes):
-            date = reference.addingTimeInterval(Double(minutes) * 60)
+            return result(reference.addingTimeInterval(Double(minutes) * 60), end: nil, hasTime: true, range: time.range)
         case .at(let clock):
-            // Time only: today at that time, or tomorrow if it has passed.
-            guard let today = clock.on(reference, calendar: calendar) else { return nil }
-            date = today > reference ? today : calendar.date(byAdding: .day, value: 1, to: today) ?? today
+            guard let day = upcomingDay(for: clock), let date = clock.on(day, calendar: calendar) else { return nil }
+            return result(date, end: nil, hasTime: true, range: time.range)
+        case .between(let start, let until):
+            guard let day = upcomingDay(for: start), let date = start.on(day, calendar: calendar) else { return nil }
+            return result(date, end: until.on(day, calendar: calendar), hasTime: true, range: time.range)
         }
-        return result(date, end: nil, hasTime: true, range: time.range)
+    }
+
+    /// Time only: today, or tomorrow if that time has passed.
+    private func upcomingDay(for clock: TimeRules.Clock) -> Date? {
+        guard let today = clock.on(reference, calendar: calendar) else { return nil }
+        return today > reference ? reference : calendar.date(byAdding: .day, value: 1, to: reference)
     }
 
     private func noon(of day: Date) -> Date? {

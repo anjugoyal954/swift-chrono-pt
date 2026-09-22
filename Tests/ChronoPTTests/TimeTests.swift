@@ -117,6 +117,7 @@ struct TimeTests {
         "comprar uma caneta",
         "o jogo virou de 3 pra 1",
         "comprar dezesseis ovos",
+        "comprar de 2 a 3 kg",
         "chegar cedo"
     ])
     func notATime(_ text: String) {
@@ -150,6 +151,61 @@ struct TimeTests {
         let found = try #require(interpret("amanhã de manhã ligar pro João, jantar às 19h"))
         #expect(hm(found.date) == [9, 0])
         #expect(found.text == "amanhã de manhã")
+    }
+
+    @Test("A time range sets the start and the end", arguments: [
+        ("amanhã das 14h às 16h", [14, 0], [16, 0]),
+        ("amanhã das 9 às 11", [9, 0], [11, 0]),
+        ("amanhã de 14h a 16h", [14, 0], [16, 0]),
+        ("amanhã entre 10 e 11h", [10, 0], [11, 0]),
+        ("amanhã entre as 10 e as 11", [10, 0], [11, 0]),
+        ("amanhã das 14h30 até as 15h", [14, 30], [15, 0]),
+        ("amanhã das 7 às 9 da noite", [19, 0], [21, 0]),
+        ("amanhã das 7 às 9 da manhã", [7, 0], [9, 0]),
+        ("amanhã das 7 às 9", [19, 0], [21, 0]),
+        ("amanhã das 10 às 2", [10, 0], [14, 0]),
+        ("amanhã de 2 a 3 da tarde", [14, 0], [15, 0]),
+        ("amanhã à noite, das 8 às 10", [20, 0], [22, 0])
+    ])
+    func timeRange(_ example: (text: String, start: [Int], end: [Int])) throws {
+        let found = try #require(interpret(example.text))
+        #expect(found.hasTime)
+        #expect(ymd(found.date) == [2026, 9, 22])
+        #expect(hm(found.date) == example.start)
+        let end = try #require(found.end)
+        #expect(ymd(end) == [2026, 9, 22])
+        #expect(hm(end) == example.end)
+    }
+
+    @Test("A time range past midnight ends the next day")
+    func overnightRange() throws {
+        let found = try #require(interpret("amanhã das 22h às 2h"))
+        #expect(ymd(found.date) == [2026, 9, 22])
+        #expect(hm(found.date) == [22, 0])
+        let end = try #require(found.end)
+        #expect(ymd(end) == [2026, 9, 23])
+        #expect(hm(end) == [2, 0])
+    }
+
+    @Test("A time range with no day is today, or tomorrow if it has started")
+    func rangeWithoutDay() throws {
+        let later = try #require(interpret("reunião das 14h às 16h"))
+        #expect(ymd(later.date) == [2026, 9, 21])
+        #expect(hm(try #require(later.end)) == [16, 0])
+        let passed = try #require(interpret("academia das 8h às 9h"))
+        #expect(ymd(passed.date) == [2026, 9, 22])
+        #expect(ymd(passed.end) == [2026, 9, 22])
+        #expect(hm(try #require(passed.end)) == [9, 0])
+    }
+
+    @Test("Two times joined by \"e\" without \"entre\" are not a range", arguments: [
+        "amanhã às 9 e às 10",
+        "amanhã de 9h e 10h"
+    ])
+    func twoTimesAreNotARange(_ text: String) throws {
+        let found = try #require(interpret(text))
+        #expect(hm(found.date) == [9, 0])
+        #expect(found.end == nil)
     }
 
     @Test("\"Para a janta\" is a purpose, not a time")

@@ -47,7 +47,24 @@ struct TextSource {
     /// The word right before the position, for rules that depend on context:
     /// "por 2 horas" is a duration, not a time.
     func word(before index: String.Index) -> String? {
-        normalized[..<index].split(whereSeparator: { !Self.isWordCharacter($0) }).last.map(String.init)
+        wordRange(before: index).map { String(normalized[$0]) }
+    }
+
+    /// Where the word right before the position is.
+    func wordRange(before index: String.Index) -> Range<String.Index>? {
+        var end = index
+        while end > normalized.startIndex, !Self.isWordCharacter(normalized[normalized.index(before: end)]) {
+            end = normalized.index(before: end)
+        }
+        var start = end
+        while start > normalized.startIndex, Self.isWordCharacter(normalized[normalized.index(before: start)]) {
+            start = normalized.index(before: start)
+        }
+        return start < end ? start..<end : nil
+    }
+
+    func words(in range: Range<String.Index>) -> [String] {
+        normalized[range].split(whereSeparator: { !Self.isWordCharacter($0) }).map(String.init)
     }
 
     /// The words right after the position: "8h por dia" is a duration.
@@ -64,6 +81,33 @@ struct TextSource {
             .split(whereSeparator: { !Self.isWordCharacter($0) })
             .allSatisfy { Self.connectors.contains(String($0)) }
     }
+
+    /// Where a range from `first` to `second` starts, or nil when the words
+    /// around them don't make one. It opens with "de", "do", "da", "das",
+    /// "desde" or "entre", right before `first` or as its first word ("das
+    /// 14h"), and closes with "a" or "até", or "e" after "entre", between the
+    /// two or as the first word of `second` ("às 16h", "até sexta"). Articles
+    /// may sit in between: "de hoje até o dia 30".
+    func rangeStart(from first: Range<String.Index>, to second: Range<String.Index>) -> String.Index? {
+        guard first.upperBound <= second.lowerBound else { return nil }
+        let opening: (word: String, start: String.Index)
+        if let word = words(after: first.lowerBound, count: 1).first, Self.rangeOpenings.contains(word) {
+            opening = (word, first.lowerBound)
+        } else if let before = wordRange(before: first.lowerBound), Self.rangeOpenings.contains(String(normalized[before])) {
+            opening = (String(normalized[before]), before.lowerBound)
+        } else {
+            return nil
+        }
+        // "de segunda e quarta" is two days, not a range.
+        let closings: Set<String> = opening.word == "entre" ? ["e"] : ["a", "as", "ao", "ate"]
+        let between = words(in: first.upperBound..<second.lowerBound)
+        guard between.allSatisfy({ closings.contains($0) || Self.articles.contains($0) }),
+              (between + words(after: second.lowerBound, count: 1)).contains(where: closings.contains) else { return nil }
+        return opening.start
+    }
+
+    private static let rangeOpenings: Set<String> = ["de", "do", "da", "das", "desde", "entre"]
+    private static let articles: Set<String> = ["o", "a", "os", "as"]
 
     private static let connectors: Set<String> = [
         "a", "as", "ao", "de", "do", "da", "no", "na", "pela", "pelo", "e", "la", "por", "volta"
