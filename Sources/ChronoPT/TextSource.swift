@@ -50,6 +50,11 @@ struct TextSource {
         normalized[..<index].split(whereSeparator: { !Self.isWordCharacter($0) }).last.map(String.init)
     }
 
+    /// The words right after the position: "8h por dia" is a duration.
+    func words(after index: String.Index, count: Int) -> [String] {
+        normalized[index...].split(whereSeparator: { !Self.isWordCharacter($0) }).prefix(count).map(String.init)
+    }
+
     /// Only spaces and prepositions between the two ranges: "amanhã às 9",
     /// "sexta à noite", "hoje, no almoço".
     func onlyConnectors(between first: Range<String.Index>, and second: Range<String.Index>) -> Bool {

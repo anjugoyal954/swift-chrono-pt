@@ -52,6 +52,10 @@ public enum ChronoPT {
     /// the text. Made for notes and reminders: "amanhã comprar pão no almoço"
     /// is tomorrow at 12:00.
     ///
+    /// A part of the day next to the day also settles a clock time said further
+    /// on, when both fall in the same half of the day: "amanhã de manhã,
+    /// reunião às 7" is tomorrow at 7:00.
+    ///
     /// When the day and the time are apart, `range` covers only the day.
     public static func interpret(
         _ text: String,
@@ -62,9 +66,11 @@ public enum ChronoPT {
         guard let day = context.days.first(where: { context.resolve($0) != nil }) else {
             return context.times.lazy.compactMap { context.combine(nil, $0) }.first
         }
-        let time = context.times.first { context.source.onlyConnectors(between: day.range, and: $0.range) }
-            ?? context.times.first
-        return context.combine(day, time)
+        let attached = context.times.first { context.source.onlyConnectors(between: day.range, and: $0.range) }
+        let joined = attached.flatMap { attached in
+            context.times.lazy.compactMap { TimeRules.joining(attached, $0) }.first
+        }
+        return context.combine(day, joined ?? attached ?? context.times.first)
     }
 }
 

@@ -105,6 +105,35 @@ struct TimeTests {
         #expect(interpret(text) == nil)
     }
 
+    @Test("A number of hours per day is a duration, not a time", arguments: [
+        "trabalhar 8h por dia",
+        "estudar 2 horas por semana",
+        "dormir 8h por noite",
+        "dormir 8 horas diárias"
+    ])
+    func hoursPerDay(_ text: String) {
+        #expect(interpret(text) == nil)
+    }
+
+    @Test("A part of the day next to the day settles a clock time said later", arguments: [
+        ("amanhã de manhã, reunião às 7", 7, 0),
+        ("amanhã à noite, jantar às 8", 20, 0),
+        ("amanhã no almoço, reunião às 13h", 13, 0),
+        ("amanhã de madrugada, voo às 3 e meia", 3, 30)
+    ])
+    func partOfDayThenClock(_ example: (text: String, hour: Int, minute: Int)) throws {
+        let found = try #require(interpret(example.text))
+        #expect(ymd(found.date) == [2026, 9, 22])
+        #expect(hm(found.date) == [example.hour, example.minute])
+    }
+
+    @Test("A clock time in the other half of the day leaves the part of the day alone")
+    func partOfDayThenOtherHalf() throws {
+        let found = try #require(interpret("amanhã de manhã ligar pro João, jantar às 19h"))
+        #expect(hm(found.date) == [9, 0])
+        #expect(found.text == "amanhã de manhã")
+    }
+
     @Test("\"Para a janta\" is a purpose, not a time")
     func purposeIsNotATime() throws {
         #expect(interpret("comprar para a janta") == nil)

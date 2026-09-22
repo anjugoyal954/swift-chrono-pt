@@ -15,6 +15,9 @@ enum TimeRules {
         /// own: "chegar cedo".
         case period(hour: Int, needsDay: Bool)
         case fromNow(minutes: Int)
+
+        var isClock: Bool { if case .clock = self { true } else { false } }
+        var isPeriod: Bool { if case .period = self { true } else { false } }
     }
 
     /// The time, already decided.
@@ -48,6 +51,8 @@ enum TimeRules {
         let value: Resolved
         /// Not a time on its own: "chegar cedo".
         let needsDay: Bool
+        /// The pieces the time was decided from.
+        let pieces: [Piece<Value>]
     }
 
     /// The times mentioned in the text, in text order.
@@ -60,22 +65,37 @@ enum TimeRules {
                 groups.append([piece])
             }
         }
-        return groups.compactMap(resolve)
+        return groups.compactMap { group in
+            guard let first = group.first, let last = group.last else { return nil }
+            return resolve(group, range: first.range.lowerBound..<last.range.upperBound)
+        }
+    }
+
+    /// A part of the day next to the day and a clock time said further on make
+    /// one time when both fall in the same half of the day: "amanhã de manhã,
+    /// reunião às 7" is 7:00, while "amanhã de manhã, jantar às 19h" stays at
+    /// 9:00. The range stays the part of the day's.
+    static func joining(_ partOfDay: Expression, _ clock: Expression) -> Expression? {
+        guard partOfDay.pieces.allSatisfy(\.value.isPeriod),
+              clock.pieces.allSatisfy(\.value.isClock),
+              case .at(let period) = partOfDay.value,
+              let joined = resolve(partOfDay.pieces + clock.pieces, range: partOfDay.range),
+              case .at(let time) = joined.value,
+              (time.hour >= 12) == (period.hour >= 12) else { return nil }
+        return joined
     }
 
     /// Time from now beats everything; a clock time beats a part of the day,
     /// and the part of the day settles a clock time that doesn't say morning
     /// or evening: "de manhã, às 7" is 7:00.
-    private static func resolve(_ group: [Piece<Value>]) -> Expression? {
-        guard let first = group.first, let last = group.last else { return nil }
-        let range = first.range.lowerBound..<last.range.upperBound
+    private static func resolve(_ group: [Piece<Value>], range: Range<String.Index>) -> Expression? {
         var clock: (hour: Int, minute: Int, ambiguous: Bool, nextDay: Bool)?
         var period: (hour: Int, needsDay: Bool)?
 
         for piece in group {
             switch piece.value {
             case .fromNow(let minutes):
-                return Expression(range: range, value: .fromNow(minutes: minutes), needsDay: false)
+                return Expression(range: range, value: .fromNow(minutes: minutes), needsDay: false, pieces: group)
             case let .clock(hour, minute, ambiguous, nextDay):
                 if clock == nil { clock = (hour, minute, ambiguous, nextDay) }
             case let .period(hour, needsDay):
@@ -91,10 +111,10 @@ enum TimeRules {
                 let afternoon = period.map { $0.hour >= 12 } ?? (hour <= 7)
                 if afternoon { hour += 12 }
             }
-            return Expression(range: range, value: .at(Clock(hour: hour, minute: clock.minute, nextDay: clock.nextDay)), needsDay: false)
+            return Expression(range: range, value: .at(Clock(hour: hour, minute: clock.minute, nextDay: clock.nextDay)), needsDay: false, pieces: group)
         }
         if let period {
-            return Expression(range: range, value: .at(Clock(hour: period.hour, minute: 0, nextDay: false)), needsDay: period.needsDay)
+            return Expression(range: range, value: .at(Clock(hour: period.hour, minute: 0, nextDay: false)), needsDay: period.needsDay, pieces: group)
         }
         return nil
     }
@@ -110,11 +130,7 @@ enum TimeRules {
             // an article.
             let marked = prefix != nil || meridiem != nil || (!spoken && (separator != nil || unit != nil))
             guard marked, let base = SpokenNumber.value(hourText), (0...23).contains(base) else { return nil }
-            // "Por 2 horas", "há 1h30": a duration, not a time.
-            if prefix == nil, meridiem == nil, let before = source.word(before: match.range.lowerBound),
-               durationWords.contains(before) {
-                return nil
-            }
+            if prefix == nil, meridiem == nil, isDuration(match.range, in: source) { return nil }
 
             let minute: Int
             if let minuteText {
@@ -179,7 +195,20 @@ enum TimeRules {
         }
     }
 
+    /// Hours with duration words around them: "por 2 horas", "há 1h30",
+    /// "8h por dia", "8 horas diárias".
+    private static func isDuration(_ range: Range<String.Index>, in source: TextSource) -> Bool {
+        if let before = source.word(before: range.lowerBound), durationWords.contains(before) { return true }
+        let after = source.words(after: range.upperBound, count: 2)
+        return rateWords.contains { after.starts(with: $0) }
+    }
+
     private static let durationWords: Set<String> = ["por", "durante", "ha", "faz", "cada", "daqui", "em", "apos", "umas", "uns"]
+
+    private static let rateWords: [[String]] = [
+        ["por", "dia"], ["por", "noite"], ["por", "semana"], ["por", "mes"], ["ao", "dia"],
+        ["diarias"], ["diarios"], ["semanais"], ["seguidas"], ["seguidos"]
+    ]
 
     // Computed, not stored: `Regex` is not `Sendable`. The text arrives
     // without accents or punctuation.
