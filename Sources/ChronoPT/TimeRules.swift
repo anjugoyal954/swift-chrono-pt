@@ -59,6 +59,11 @@ enum TimeRules {
         let needsDay: Bool
         /// The pieces the time was decided from.
         let pieces: [Piece<Value>]
+
+        /// "há 2 horas": counts only with `ParseOptions.allowsPast`.
+        var isPast: Bool {
+            if case .fromNow(let minutes) = value { minutes < 0 } else { false }
+        }
     }
 
     /// The times mentioned in the text, in text order.
@@ -278,9 +283,13 @@ enum TimeRules {
         }
     }
 
+    /// "daqui 2 horas" ahead; "há 2 horas" and "20 minutos atrás" back.
     private static func fromNow(in source: TextSource) -> [Piece<Value>] {
-        source.normalized.matches(of: inTime).compactMap { match in
-            let (_, amount, unit) = match.output
+        let text = source.normalized
+        let found = text.matches(of: inTime).map { ($0.range, $0.output.1, $0.output.2, 1) }
+            + text.matches(of: agoTime).map { ($0.range, $0.output.1, $0.output.2, -1) }
+            + text.matches(of: timeAgo).map { ($0.range, $0.output.1, $0.output.2, -1) }
+        return found.compactMap { range, amount, unit, sign in
             let hours = unit.hasPrefix("hora")
             let minutes: Int
             if amount == "meia" {
@@ -290,7 +299,7 @@ enum TimeRules {
                 guard let count = SpokenNumber.value(amount) else { return nil }
                 minutes = hours ? count * 60 : count
             }
-            return Piece(range: match.range, value: .fromNow(minutes: minutes))
+            return Piece(range: range, value: .fromNow(minutes: sign * minutes))
         }
     }
 
@@ -346,6 +355,22 @@ enum TimeRules {
     }
 
     // "daqui 2 horas", "em meia hora", "daqui a 20 minutos"
+    // "há 2 horas", "faz meia hora"
+    private static var agoTime: Regex<(Substring, Substring, Substring)> {
+        RegexCache.regex {
+            #/\b(?:ha|faz) (\d{1,3}|uma|um|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta|quarenta|cinquenta|meia) (horas?|minutos?|min)\b/#
+                .wordBoundaryKind(.simple)
+        }
+    }
+
+    // "20 minutos atrás"
+    private static var timeAgo: Regex<(Substring, Substring, Substring)> {
+        RegexCache.regex {
+            #/\b(\d{1,3}|uma|um|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta|quarenta|cinquenta|meia) (horas?|minutos?|min) atras\b/#
+                .wordBoundaryKind(.simple)
+        }
+    }
+
     private static var inTime: Regex<(Substring, Substring, Substring)> {
         RegexCache.regex {
             #/\b(?:daqui a|daqui|em|dentro de) (\d{1,3}|uma|um|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta|quarenta|cinquenta|meia) (horas?|minutos?|min)\b/#

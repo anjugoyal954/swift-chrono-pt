@@ -17,12 +17,12 @@ func reference(_ year: Int, _ month: Int, _ day: Int) -> Date {
     saoPaulo.date(from: DateComponents(year: year, month: month, day: day, hour: 10))!
 }
 
-func interpret(_ text: String, reference: Date = monday) -> ParsedResult? {
-    ChronoPT.interpret(text, reference: reference, calendar: saoPaulo)
+func interpret(_ text: String, reference: Date = monday, options: ParseOptions = ParseOptions()) -> ParsedResult? {
+    ChronoPT.interpret(text, reference: reference, calendar: saoPaulo, options: options)
 }
 
-func parse(_ text: String, reference: Date = monday) -> [ParsedResult] {
-    ChronoPT.parse(text, reference: reference, calendar: saoPaulo)
+func parse(_ text: String, reference: Date = monday, options: ParseOptions = ParseOptions()) -> [ParsedResult] {
+    ChronoPT.parse(text, reference: reference, calendar: saoPaulo, options: options)
 }
 
 func ymd(_ date: Date?) -> [Int] {

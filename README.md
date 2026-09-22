@@ -25,6 +25,7 @@ date always gives the same result.
 - [What it understands](#what-it-understands)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Options](#options)
 - [How it reads ambiguous text](#how-it-reads-ambiguous-text)
 - [Not supported yet](#not-supported-yet)
 - [Contributing](#contributing)
@@ -44,6 +45,10 @@ date always gives the same result.
 | Moment | no almoço, na janta, depois do almoço, antes de dormir, ao acordar, no café da manhã, depois do trabalho |
 | From now | daqui 2 horas, em meia hora, daqui a 20 minutos |
 | Range | das 14h às 16h, 14h às 16h, 10h-11h, de 9 a 11h, entre 10 e 11h, de segunda a sexta, seg-sex, do dia 10 ao dia 15, de 10 a 15 de outubro |
+| Repeating | todo dia, todos os dias, toda terça, todas as sextas, às segundas e quartas, todo dia 5, todo mês no dia 10 |
+| Past | ontem, anteontem, sexta passada, na última sexta, semana passada, mês passado, há 2 dias, 3 dias atrás, há 2 horas |
+
+Past dates count only with `allowsPast` (see [Options](#options)).
 
 Accents and capitals are optional: "AMANHA as 9" and "no almoco" work too. So
 do forms common in Portugal, such as "pelas 9", "às 15h00", "ao pequeno-almoço"
@@ -104,6 +109,32 @@ shift?.date  // next Monday at 9:00
 shift?.end   // that Friday at 18:00
 ```
 
+### Repeating dates
+
+`recurrence` says how a date repeats, and `date` is the next time it happens,
+counting today.
+
+```swift
+let chore = ChronoPT.interpret("tirar o lixo toda terça às 20h")
+chore?.date        // next Tuesday at 20:00
+chore?.recurrence  // .weekly([.tuesday])
+```
+
+### Options
+
+Past dates are off by default, since a reminder in the past is useless. A day
+with no time is set to noon.
+
+```swift
+let options = ParseOptions(allowsPast: true, defaultHour: 9)
+let paid = ChronoPT.interpret("paguei ontem", options: options)
+paid?.date  // yesterday at 9:00
+```
+
+`allowsPast` covers words that point back, such as "ontem", "sexta passada"
+or "há 2 dias". A date that only names a day, such as "dia 15" or "sexta",
+still means the next one.
+
 ### Reference date and calendar
 
 Relative expressions are computed from `reference`, which defaults to now.
@@ -126,11 +157,13 @@ public struct ParsedResult: Sendable, Equatable {
     public let date: Date                  // the start; noon when the text gives no time
     public let end: Date?                  // the end of a period or range
     public let hasTime: Bool               // false when the text gives only the day
+    public let recurrence: Recurrence?     // .daily, .weekly([...]), .monthly(day:)
 }
 ```
 
-A day without a time is set to noon, away from the midnight shifts of
-daylight saving time. Check `hasTime` before showing the hour.
+A day without a time is set to noon, or to `defaultHour`, away from the
+midnight shifts of daylight saving time. Check `hasTime` before showing the
+hour.
 
 Every public symbol has documentation comments. To browse them as DocC
 documentation, open the package in Xcode and choose **Product › Build
@@ -138,7 +171,9 @@ Documentation**.
 
 ## How it reads ambiguous text
 
-- A time with no day is today, or tomorrow if that time has passed.
+- A time with no day is today, or tomorrow if that time has passed. A
+  repeating date works the same way: "toda segunda às 9" said on a Monday at
+  10:00 is next Monday.
 - A weekday is the next one, not counting today: "sexta" said on a Friday is
   next week's.
 - Spoken "às 7" is 19:00, the way people say it, and written "7h" is 7:00. A
@@ -161,9 +196,9 @@ Documentation**.
 
 ## Not supported yet
 
-Past dates ("ontem", "sexta passada") and recurrence ("toda terça") are on the
-[roadmap](https://github.com/bertalhia/swift-chrono-pt/issues). "ter" is read as
-the verb "to have", never as Tuesday: write "terça".
+Telling which parts of a date came from the text and which from the reference
+date is on the [roadmap](https://github.com/bertalhia/swift-chrono-pt/issues).
+"ter" is read as the verb "to have", never as Tuesday: write "terça".
 Bug reports are welcome: include the text, the reference date and time zone,
 the result you got and the one you expected.
 

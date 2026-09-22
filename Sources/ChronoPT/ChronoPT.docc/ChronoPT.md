@@ -13,8 +13,8 @@ let reminder = ChronoPT.interpret("comprar pão amanhã no almoço")
 // reminder?.text is "amanhã no almoço"
 ```
 
-Use ``ChronoPT/interpret(_:reference:calendar:)`` when the whole text is one
-note and you want one date for it. Use ``ChronoPT/parse(_:reference:calendar:)``
+Use ``ChronoPT/interpret(_:reference:calendar:options:)`` when the whole text is one
+note and you want one date for it. Use ``ChronoPT/parse(_:reference:calendar:options:)``
 to get every expression in the text, in order.
 
 The parser is deterministic. It doesn't use the network, a language model or
@@ -33,19 +33,28 @@ calendar.timeZone = TimeZone(identifier: "America/Sao_Paulo")!
 let results = ChronoPT.parse(text, reference: now, calendar: calendar)
 ```
 
+### Repeating and past dates
+
+``ParsedResult/recurrence`` says how a date repeats ("toda terça", "todo dia
+às 8", "todo dia 5"), and ``ParsedResult/date`` is the next time it happens.
+Past dates ("ontem", "sexta passada", "há 2 dias") count only with
+``ParseOptions/allowsPast``.
+
 ### Dates without a time
 
-When the text gives only a day, ``ParsedResult/date`` is noon of that day and
-``ParsedResult/hasTime`` is `false`. Noon keeps the date away from the
+When the text gives only a day, ``ParsedResult/date`` is noon of that day, or
+``ParseOptions/defaultHour``, and ``ParsedResult/hasTime`` is `false`. Noon keeps the date away from the
 midnight shifts of daylight saving time.
 
 ## Topics
 
 ### Parsing
 
-- ``ChronoPT/interpret(_:reference:calendar:)``
-- ``ChronoPT/parse(_:reference:calendar:)``
+- ``ChronoPT/interpret(_:reference:calendar:options:)``
+- ``ChronoPT/parse(_:reference:calendar:options:)``
+- ``ParseOptions``
 
 ### Results
 
 - ``ParsedResult``
+- ``Recurrence``

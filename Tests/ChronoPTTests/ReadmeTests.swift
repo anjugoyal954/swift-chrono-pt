@@ -28,6 +28,15 @@ struct ReadmeTests {
         let end = try #require(shift.end)
         #expect(ymd(end) == [2026, 10, 2])
         #expect(hm(end) == [18, 0])
+
+        let chore = try #require(interpret("tirar o lixo toda terça às 20h"))
+        #expect(ymd(chore.date) == [2026, 9, 22])
+        #expect(hm(chore.date) == [20, 0])
+        #expect(chore.recurrence == .weekly([.tuesday]))
+
+        let paid = try #require(interpret("paguei ontem", options: ParseOptions(allowsPast: true, defaultHour: 9)))
+        #expect(ymd(paid.date) == [2026, 9, 20])
+        #expect(hm(paid.date) == [9, 0])
     }
 
     @Test("Accents and capitals are optional")
@@ -47,7 +56,7 @@ struct ReadmeTests {
             .split(separator: "\n")
             .filter { $0.hasPrefix("| ") && !$0.hasPrefix("| Kind") }
             .map { $0.split(separator: "|").map { $0.trimmingCharacters(in: .whitespaces) } }
-        #expect(rows.count == 10)
+        #expect(rows.count == 12)
 
         for row in rows {
             let (kind, examples) = (row[0], row[1].components(separatedBy: ", "))
@@ -62,6 +71,11 @@ struct ReadmeTests {
                     #expect(interpret(example)?.hasTime == true, "\(kind): \(example)")
                 case "Range":
                     #expect(interpret(example)?.end != nil, "\(kind): \(example)")
+                case "Repeating":
+                    #expect(interpret(example)?.recurrence != nil, "\(kind): \(example)")
+                case "Past":
+                    #expect(interpret(example) == nil, "\(kind): \(example)")
+                    #expect(interpret(example, options: ParseOptions(allowsPast: true)) != nil, "\(kind): \(example)")
                 default:
                     Issue.record("Unknown kind in the README table: \(kind)")
                 }
