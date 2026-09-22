@@ -10,6 +10,8 @@ import Foundation
 enum TimeRules {
     enum Value: Sendable {
         /// `ambiguous` when the words don't say morning or evening: "às 7".
+        /// `minute` is negative for minutes before the hour: "quinze para as
+        /// oito" is 8:00 and -15.
         case clock(hour: Int, minute: Int, ambiguous: Bool, nextDay: Bool)
         /// Part of the day or moment. `needsDay` when it is not a time on its
         /// own: "chegar cedo".
@@ -40,7 +42,8 @@ enum TimeRules {
 
     /// Every time piece, without overlap, in text order.
     private static func candidates(in source: TextSource) -> [Piece<Value>] {
-        let found = clocks(in: source) + noonAndMidnight(in: source) + fromNow(in: source) + periods(in: source)
+        let found = clocks(in: source) + minutesToHour(in: source) + noonAndMidnight(in: source)
+            + fromNow(in: source) + periods(in: source)
         return Piece.nonOverlapping(found, in: source)
     }
 
@@ -111,7 +114,11 @@ enum TimeRules {
                 let afternoon = period.map { $0.hour >= 12 } ?? (hour <= 7)
                 if afternoon { hour += 12 }
             }
-            return Expression(range: range, value: .at(Clock(hour: hour, minute: clock.minute, nextDay: clock.nextDay)), needsDay: false, pieces: group)
+            // Minutes before the hour move back from the named hour: "dez para a
+            // meia-noite" is 23:50 of the same day.
+            let minutes = hour * 60 + clock.minute + (clock.nextDay ? 24 * 60 : 0)
+            let time = Clock(hour: minutes / 60 % 24, minute: minutes % 60, nextDay: minutes >= 24 * 60)
+            return Expression(range: range, value: .at(time), needsDay: false, pieces: group)
         }
         if let period {
             return Expression(range: range, value: .at(Clock(hour: period.hour, minute: 0, nextDay: false)), needsDay: period.needsDay, pieces: group)
@@ -142,29 +149,52 @@ enum TimeRules {
             }
             guard (0...59).contains(minute) else { return nil }
 
-            var hour = base
-            var nextDay = false
-            var ambiguous = false
-            switch meridiem {
-            case "manha"?, "madrugada"?:
-                hour = base == 12 ? 0 : base
-            case "tarde"?:
-                hour = base < 12 ? base + 12 : base
-            case "noite"?:
-                // Midnight is also said "12 da noite".
-                if base == 12 {
-                    hour = 0
-                    nextDay = true
-                } else if base < 12 {
-                    hour = base + 12
-                }
-            default:
-                // Written "7h" or "07:00" is the 24-hour clock; spoken, "às 7"
-                // doesn't say morning or evening.
-                let written = separator != nil || unit?.first == "h" || hourText.hasPrefix("0")
-                ambiguous = (1...11).contains(base) && !written
+            if let meridiem {
+                let (hour, nextDay) = clockHour(base, meridiem: meridiem)
+                return Piece(range: match.range, value: .clock(hour: hour, minute: minute, ambiguous: false, nextDay: nextDay))
             }
-            return Piece(range: match.range, value: .clock(hour: hour, minute: minute, ambiguous: ambiguous, nextDay: nextDay))
+            // Written "7h" or "07:00" is the 24-hour clock; spoken, "às 7"
+            // doesn't say morning or evening.
+            let written = separator != nil || unit?.first == "h" || hourText.hasPrefix("0")
+            let ambiguous = (1...11).contains(base) && !written
+            return Piece(range: match.range, value: .clock(hour: base, minute: minute, ambiguous: ambiguous, nextDay: false))
+        }
+    }
+
+    /// Minutes before the hour: "quinze para as oito" is 7:45. The named hour
+    /// decides morning or evening, as in "às oito".
+    private static func minutesToHour(in source: TextSource) -> [Piece<Value>] {
+        source.normalized.matches(of: minutesTo).compactMap { match in
+            let (_, minuteText, unit, hourText, meridiem) = match.output
+            // Digits need "min": "de 3 pra 1" is a score.
+            guard Int(minuteText) == nil || unit != nil,
+                  let minutes = SpokenNumber.value(minuteText), (1...30).contains(minutes) else { return nil }
+
+            let clock: (hour: Int, ambiguous: Bool, nextDay: Bool)
+            if hourText.hasPrefix("meio") {
+                clock = (12, false, false)
+            } else if hourText.hasPrefix("meia") {
+                clock = (0, false, true)
+            } else {
+                guard let named = SpokenNumber.value(hourText), (1...12).contains(named) else { return nil }
+                if let meridiem {
+                    let (hour, nextDay) = clockHour(named, meridiem: meridiem)
+                    clock = (hour, false, nextDay)
+                } else {
+                    clock = (named, named <= 11, false)
+                }
+            }
+            return Piece(range: match.range, value: .clock(hour: clock.hour, minute: -minutes, ambiguous: clock.ambiguous, nextDay: clock.nextDay))
+        }
+    }
+
+    /// The 24-hour clock for a spoken hour and its part of the day: "7 da
+    /// noite" is 19:00, and "12 da noite" is midnight, the start of the next day.
+    private static func clockHour(_ base: Int, meridiem: Substring) -> (hour: Int, nextDay: Bool) {
+        switch meridiem {
+        case "manha", "madrugada": (base == 12 ? 0 : base, false)
+        case "tarde": (base < 12 ? base + 12 : base, false)
+        default: base == 12 ? (0, true) : (base < 12 ? base + 12 : base, false)
         }
     }
 
@@ -216,6 +246,12 @@ enum TimeRules {
     // "às 9", "14h", "9h30", "10:30", "às 7 e meia", "às sete da noite", "3 da tarde"
     private static var clock: Regex<(Substring, Substring?, Substring, Substring?, Substring?, Substring?, Substring?, Substring?)> {
         #/\b(?:(as|ate as|pelas|la pelas|por volta das|a partir das|das) )?(\d{1,2}|uma|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze)(?:(:|h)(\d{2})\b|( ?(?:hrs|hr|hs|horas|hora|h))\b|\b)(?: e (meia|quinze|vinte e cinco|vinte|trinta|quarenta e cinco|quarenta|cinquenta|cinco|dez|\d{1,2})\b)?(?: (?:da|de|pela) (manha|tarde|noite|madrugada)\b)?/#
+            .wordBoundaryKind(.simple)
+    }
+
+    // "quinze para as oito", "vinte e cinco pras 9", "10 minutos para as 3 da tarde"
+    private static var minutesTo: Regex<(Substring, Substring, Substring?, Substring, Substring?)> {
+        #/\b(?:(?:as|pelas|la pelas|por volta das|ate as) )?(vinte e cinco|cinco|dez|quinze|vinte|\d{1,2})( min| minutos)? (?:para as|para a|para o|pras|pra as|pra a|pro) (\d{1,2}|uma|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|meio-dia|meio dia|meia-noite|meia noite)\b(?: (?:da|de|pela) (manha|tarde|noite|madrugada)\b)?/#
             .wordBoundaryKind(.simple)
     }
 

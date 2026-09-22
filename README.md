@@ -28,7 +28,7 @@ gives the same result, on every OS version.
 | Weekday | sexta que vem, próxima sexta, nesta quinta, na terça-feira, sábado, quarta da semana que vem |
 | Date | 25/09, 25/09/2026, 2026-10-15, 15 de outubro, 1º de maio, primeiro de janeiro, dia 30, dia primeiro |
 | Period | esta semana, semana que vem, fim de semana, este mês, mês que vem, começo do mês que vem, fim do mês, ano que vem |
-| Clock time | às 9, 14h, 9h30, 10:30, às 7 e meia, às sete da noite, 3 da tarde, meio-dia e meia, à meia-noite |
+| Clock time | às 9, 14h, 9h30, 10:30, às 7 e meia, às sete da noite, 3 da tarde, quinze para as oito, meio-dia e meia, à meia-noite |
 | Part of the day | de manhã, à tarde, à noite, de madrugada, cedo, à tardinha, tarde da noite, no fim da tarde |
 | Moment | no almoço, na janta, depois do almoço, antes de dormir, ao acordar, no café da manhã, depois do trabalho |
 | From now | daqui 2 horas, em meia hora, daqui a 20 minutos |

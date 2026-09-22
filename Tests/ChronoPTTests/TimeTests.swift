@@ -39,7 +39,17 @@ struct TimeTests {
         ("amanhã às 9h30", 9, 30),
         ("amanhã 14h", 14, 0),
         ("amanhã às 20:15", 20, 15),
-        ("amanha as 11 hrs", 11, 0)
+        ("amanha as 11 hrs", 11, 0),
+        ("amanhã às oito e quarenta e cinco", 8, 45),
+        ("amanhã às quinze para as oito", 7, 45),
+        ("amanhã quinze para as oito", 7, 45),
+        ("amanhã vinte para as dez", 9, 40),
+        ("amanhã vinte e cinco pras 9", 8, 35),
+        ("amanhã quinze para as sete da noite", 18, 45),
+        ("amanhã quinze para a uma", 12, 45),
+        ("amanhã 10 minutos para as 3 da tarde", 14, 50),
+        ("amanhã quinze para o meio-dia", 11, 45),
+        ("amanhã dez para a meia-noite", 23, 50)
     ])
     func time(_ example: (text: String, hour: Int, minute: Int)) throws {
         let found = try #require(interpret(example.text))
@@ -99,6 +109,7 @@ struct TimeTests {
     @Test("A bare number, a duration and a lone \"cedo\" are not times", arguments: [
         "estudar por 2 horas",
         "comprar uma caneta",
+        "o jogo virou de 3 pra 1",
         "chegar cedo"
     ])
     func notATime(_ text: String) {
